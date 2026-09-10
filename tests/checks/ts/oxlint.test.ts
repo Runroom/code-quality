@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { BUILTIN_EXCLUSIONS, TEST_EXCLUSIONS } from "../../../src/core/config/exclusions.ts";
 import { oxlintAdapter, oxlintConfig, oxlintFindings } from "../../../src/checks/ts/oxlint.ts";
 import { checkContext } from "../../helpers/check-context.ts";
 
@@ -33,7 +34,15 @@ describe("oxlint config and command", () => {
       "max-depth": ["warn", 3],
       "max-nested-callbacks": ["warn", 3],
     });
-    expect(oxlintAdapter.command(checkContext(root)).args).toContain("--format");
+    const commandContext = checkContext(root);
+    commandContext.config.exclude.push("custom/**");
+    const args = oxlintAdapter.command(commandContext).args;
+    expect(config).not.toHaveProperty("ignorePatterns");
+    expect(args).toContain("--format");
+    for (const glob of [...BUILTIN_EXCLUSIONS, "custom/**", ...TEST_EXCLUSIONS]) {
+      const index = args.indexOf(glob);
+      expect(args[index - 1]).toBe("--ignore-pattern");
+    }
   });
 });
 
@@ -108,6 +117,7 @@ describe("oxlint captured fixture", () => {
       diagnostics: Array<{ code: string; message: string }>;
     };
     const parsed = await oxlintFindings(checkContext(root), reportInput);
+    expect(Object.keys(parsed).some((key) => key.includes("ignored.test.ts"))).toBe(false);
     const rules = new Set(Object.keys(parsed).map((key) => key.split(" | ")[1]));
     expect(rules).toEqual(new Set([
       "eslint(complexity)", "eslint(max-params)", "eslint(max-lines-per-function)",

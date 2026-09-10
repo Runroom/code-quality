@@ -26,7 +26,7 @@ const fallowSchema = z.looseObject({
 
 function fallowConfig(ctx: CheckContext): string {
   return JSON.stringify({
-    ignorePatterns: [...excludeGlobs(ctx.config, false), "artifacts/**"],
+    ignorePatterns: [...excludeGlobs(ctx.config, true), "artifacts/**"],
     health: { maxCyclomatic: POLICY.complexity, maxCognitive: POLICY.cognitive },
     duplicates: POLICY.advisoryDuplication,
   }, null, 2);

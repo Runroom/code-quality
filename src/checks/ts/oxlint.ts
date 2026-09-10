@@ -27,10 +27,9 @@ const reportSchema = z.looseObject({
   })),
 });
 
-export function oxlintConfig(config: ResolvedConfig): string {
+export function oxlintConfig(_config: ResolvedConfig): string {
   return JSON.stringify({
     plugins: ["typescript", "react"],
-    ignorePatterns: excludeGlobs(config, false),
     categories: {
       correctness: "off", suspicious: "off", pedantic: "off", perf: "off",
       style: "off", restriction: "off", nursery: "off",
@@ -83,7 +82,9 @@ export const oxlintAdapter: CheckAdapter = {
   }],
   command: (ctx) => ({
     bin: "oxlint",
-    args: ["-c", join(ctx.tempDir, "oxlintrc.quality.json"), "--format", "json", ...ctx.paths],
+    args: ["-c", join(ctx.tempDir, "oxlintrc.quality.json"),
+      ...excludeGlobs(ctx.config, true).flatMap((glob) => ["--ignore-pattern", glob]),
+      "--format", "json", ...ctx.paths],
     exitCodes: [0],
   }),
   parse: (ctx, result) => oxlintFindings(ctx, JSON.parse(result.stdout) as unknown),

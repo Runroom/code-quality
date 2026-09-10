@@ -37,7 +37,7 @@ export function phpcsCommand(ctx: CheckContext, rulesetFile: string): ToolInvoca
   return {
     bin: "phpcs",
     args: ["--report=json", `--standard=${rulesetFile}`,
-      `--ignore=${excludeGlobs(ctx.config, false).join(",")}`, "-q", ...ctx.paths],
+      `--ignore=${excludeGlobs(ctx.config, true).join(",")}`, "-q", ...ctx.paths],
     exitCodes: [0, 1, 2],
   };
 }

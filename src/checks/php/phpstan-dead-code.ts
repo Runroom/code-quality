@@ -23,7 +23,7 @@ function neonList(values: readonly string[]): string {
 
 function phpstanConfig(ctx: CheckContext): string {
   const paths = ctx.paths.map((path) => join(ctx.root, path));
-  const excludes = excludeGlobs(ctx.config, false).map((path) => join(ctx.root, path));
+  const excludes = excludeGlobs(ctx.config, true).map((path) => join(ctx.root, path));
   return `includes:\n    - /opt/php/phpstan/vendor/shipmonk/dead-code-detector/rules.neon\n`
     + `parameters:\n    customRulesetUsed: true\n    paths:\n${neonList(paths)}\n`
     + `    excludePaths:\n        analyseAndScan:\n${neonList(excludes)}\n`

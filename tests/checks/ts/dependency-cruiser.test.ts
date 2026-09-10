@@ -50,9 +50,11 @@ describe("dependency-cruiser synthetic parser", () => {
 
 describe("dependency-cruiser captured fixture", () => {
   it("finds the ui to db violation", () => {
-    expect(dependencyCruiserFindings(
+    const findings = dependencyCruiserFindings(
       checkContext(root),
       JSON.parse(readFileSync(nativeFile, "utf8")),
-    )).toEqual({ "src/ui/view.ts | no-ui-to-db | src/db/repo.ts": 1 });
+    );
+    expect(Object.keys(findings).some((key) => key.includes("ignored.test.ts"))).toBe(false);
+    expect(findings).toEqual({ "src/ui/view.ts | no-ui-to-db | src/db/repo.ts": 1 });
   });
 });

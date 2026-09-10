@@ -138,7 +138,7 @@ The consumer configuration is YAML with only the following fields. An omitted fi
 | `paths.ts` | list of repository-relative directory/file globs | Existing `src/` when TS/JS is detected; every configured path must be repository-relative |
 | `paths.php` | list of repository-relative directory/file globs | Existing `src/`, plus existing `lib/` and `app/` when PHP is detected |
 | `paths.python` | list of repository-relative directory/file globs | Existing `src/` when Python is detected |
-| `exclude` | list of repository-relative glob patterns | No consumer exclusions; built-in test exclusions still apply to duplication |
+| `exclude` | list of repository-relative glob patterns | No consumer exclusions; built-in test exclusions apply to every blocking check |
 | `checks.disabled` | list of objects `{ id, reason }` | No checks disabled. `id` must be a registered check ID and `reason` must be non-empty prose |
 | `architecture.ts.rulesFile` | repository-relative file path | Conventional `.dependency-cruiser.cjs` when it exists; otherwise architecture is skipped |
 | `architecture.php.rulesFile` | repository-relative file path | Conventional `deptrac.yaml` when it exists; otherwise architecture is skipped |
@@ -217,7 +217,7 @@ The following thresholds are Runroom policy and are fixed in the image.
 | `cognitive` | TS/JS | fallow 3.23.0 | Cognitive complexity 15 |
 | `cognitive` | PHP | slevomat/coding-standard 8.31.1 through PHPCS | `SlevomatCodingStandard.Complexity.Cognitive` maxComplexity 15 |
 | `cognitive` | Python | complexipy 8.0.1 | The Runroom cognitive-complexity policy threshold is 15 |
-| `duplication` | TS/JS, PHP, Python | jscpd 5.2.0 | Mild mode, minimum 50 tokens and 5 lines; tests excluded |
+| `duplication` | TS/JS, PHP, Python | jscpd 5.2.0 | Mild mode, minimum 50 tokens and 5 lines; tests are excluded from every blocking check |
 | `unused` | TS/JS | knip 6.35.1 | Unused files, exports, and dependencies |
 | `unused` | PHP | composer-unused 0.9.6, composer-require-checker 4.24.0, phpstan 2.2.13 with shipmonk/dead-code-detector 1.4.0 | Unused packages, invalid/unused Composer requirements, and dead code according to the three tools |
 | `unused` | Python | vulture 2.16 and deptry 0.25.1 | Unused code and dependency problems |

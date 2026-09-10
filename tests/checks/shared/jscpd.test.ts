@@ -64,14 +64,16 @@ describe("jscpd adapter", () => {
 describe("jscpd captured fixture", () => {
   it("parses the exact native fingerprint map", () => {
     const ctx = reportFiles();
+    const nativeReport = readFileSync(join(nativeDir, "jscpd-report.json"), "utf8");
     writeFileSync(
       join(ctx.artifactDir, "jscpd", "jscpd-report.json"),
-      readFileSync(join(nativeDir, "jscpd-report.json")),
+      nativeReport,
     );
     writeFileSync(
       join(ctx.artifactDir, "jscpd-current.json"),
       readFileSync(join(nativeDir, "jscpd-current.json")),
     );
+    expect(nativeReport).not.toContain("ignored.test.ts");
     expect(jscpdFindings(ctx)).toEqual({
       "52345a7776aa96cf": 1,
       f8c7fd6b65e1d3fa: 1,

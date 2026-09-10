@@ -57,6 +57,7 @@ describe("knip captured fixture", () => {
       checkContext(root),
       JSON.parse(readFileSync(nativeFile, "utf8")),
     );
+    expect(Object.keys(findings).some((key) => key.includes("ignored.test.ts"))).toBe(false);
     expect(findings).toEqual({
       "package.json | unused-dependency | left-pad": 1,
       "src/cognitive.ts | unused-file | src/cognitive.ts": 1,
@@ -96,6 +97,9 @@ describe("knip generated config", () => {
       "scripts/**/*.{ts,tsx,js,jsx,mjs,cjs}",
       ...tests,
     ]);
+    expect(generated.ignore).toEqual(expect.arrayContaining([
+      "**/*.test.*", "**/__tests__/**", "**/tests/**",
+    ]));
     expect(generated).not.toHaveProperty("includeEntryExports");
   });
 });

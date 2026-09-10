@@ -73,4 +73,19 @@ describe("init command", () => {
     expect(await runCli(["node", "code-quality", "init"], command(root, errors))).toBe(1);
     expect(errors.join(" ")).toContain("No supported manifest");
   });
+
+  it.each(["init", "check"])("explains how to configure a non-src layout when %s fails", async (name) => {
+    const root = mkdtempSync(join(tmpdir(), `code-quality-${name}-missing-src-`));
+    roots.push(root);
+    mkdirSync(join(root, "app"));
+    writeFileSync(join(root, "app/index.ts"), "", "utf8");
+    writeFileSync(join(root, "package.json"), "{}", "utf8");
+    const errors: string[] = [];
+
+    expect(await runCli(["node", "code-quality", name], command(root, errors))).toBe(1);
+    expect(errors.join(" ")).toContain(
+      "ts: no usable source path (src). Create .code-quality.yml with "
+        + "paths.ts listing your source roots, e.g. paths: { ts: [app, lib] }",
+    );
+  });
 });

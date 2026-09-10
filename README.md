@@ -6,6 +6,8 @@ Runroom code-quality is a Dockerized, incremental quality gate for TypeScript/Ja
 
 The policy is fixed in the image. Consumer repositories choose languages, source paths, exclusions, disabled checks with a written reason, and architecture rule files; thresholds and parser behavior are not configurable. See the [quality-gate reference](docs/quality-gate.md) for the complete policy and tool matrix.
 
+Tests are excluded from every blocking check using the built-in test-file patterns. Consumer `exclude` patterns are additive.
+
 ## Adopt in an existing repo
 
 From the root of the repository, run:
@@ -15,6 +17,8 @@ docker run --rm -v "$PWD:/work" ghcr.io/runroom/code-quality:v1 init
 ```
 
 Review the generated `.code-quality.yml`, source paths, `.github/workflows/quality.yml`, and `Makefile`. Commit the `quality/` baselines along with the reviewed configuration. Existing findings are recorded once; later checks fail on new or worsened findings and on stale baseline entries.
+
+`init` uses conventional `src/` source roots (and also checks `lib/` and `app/` for PHP). For a non-`src` layout, it reports the missing default root and shows how to create `.code-quality.yml` with `paths.<language>` listing roots such as `app` or `lib`; add that configuration and rerun `init`.
 
 If the repository is PHP, install its application dependencies before checking. The normal CI setup is `composer install`, which creates the `vendor/` directory required by the PHP unused-code checks.
 
@@ -113,7 +117,7 @@ Each run writes to `artifacts/quality/<adapter>/`. The directory contains the na
 | `paths.ts` | list of repository-relative directory/file globs | Existing `src/` when TS/JS is detected |
 | `paths.php` | list of repository-relative directory/file globs | Existing `src/`, plus existing `lib/` and `app/` when PHP is detected |
 | `paths.python` | list of repository-relative directory/file globs | Existing `src/` when Python is detected |
-| `exclude` | list of repository-relative glob patterns | No consumer exclusions; built-in test exclusions still apply to duplication |
+| `exclude` | list of repository-relative glob patterns | No consumer exclusions; built-in test exclusions apply to every blocking check |
 | `checks.disabled` | list of `{ id, reason }` objects | No checks disabled; `reason` must be non-empty prose |
 | `architecture.ts.rulesFile` | repository-relative file path | `.dependency-cruiser.cjs` when it exists; otherwise skipped |
 | `architecture.php.rulesFile` | repository-relative file path | `deptrac.yaml` when it exists; otherwise skipped |

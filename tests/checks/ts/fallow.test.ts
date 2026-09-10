@@ -39,12 +39,15 @@ describe("fallow synthetic parser", () => {
 
   it("derives advisory settings from policy", () => {
     const generated = JSON.parse(fallowAdapter.configFiles(ctx)[0]!.content) as {
-      health: unknown; duplicates: unknown;
+      health: unknown; duplicates: unknown; ignorePatterns: string[];
     };
     expect(generated.health).toEqual({
       maxCyclomatic: POLICY.complexity, maxCognitive: POLICY.cognitive,
     });
     expect(generated.duplicates).toEqual(POLICY.advisoryDuplication);
+    expect(generated.ignorePatterns).toEqual(expect.arrayContaining([
+      "**/*.test.*", "**/__tests__/**", "**/tests/**",
+    ]));
   });
 
   it("skips production findings outside configured paths", async () => {
@@ -100,6 +103,7 @@ describe("fallow captured fixture", () => {
       checkContext(root),
       JSON.parse(readFileSync(nativeFile, "utf8")),
     );
+    expect(Object.keys(findings).some((key) => key.includes("ignored.test.ts"))).toBe(false);
     expect(Object.values(findings)).toEqual([21, 21]);
     expect(Object.keys(findings)).toEqual([
       "src/cognitive.ts | cognitive-complexity | /function:nested",

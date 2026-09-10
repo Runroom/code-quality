@@ -6,6 +6,10 @@ The quality gate makes incremental improvement enforceable in repositories that 
 
 The policy is owned by the image and is not a consumer setting. `.code-quality.yml` can select languages, paths, exclusions, disabled checks with reasons, and architecture rule files, but it cannot change thresholds, tools, parser strictness, or baseline comparison semantics.
 
+## Built-in test exclusions
+
+Every blocking check applies the built-in `TEST_EXCLUSIONS` patterns, so test files are excluded from complexity, cognitive complexity, exact duplication, unused-code, and architecture checks. The patterns are `**/*.test.*`, `**/*.spec.*`, `**/__tests__/**`, `**/tests/**`, `**/test/**`, `**/*Test.php`, `**/test_*.py`, `**/*_test.py`, and `**/conftest.py`. Consumer `exclude` patterns are additive.
+
 ## Thresholds by language
 
 The v1 thresholds are fixed as follows.
@@ -18,7 +22,7 @@ The v1 thresholds are fixed as follows.
 | Cognitive complexity | TS/JS | Fallow 3.23.0 | Values greater than 15 block. |
 | Cognitive complexity | PHP | Slevomat coding standard 8.31.1 through PHPCS | `SlevomatCodingStandard.Complexity.Cognitive` maxComplexity 15; values greater than 15 block. |
 | Cognitive complexity | Python | complexipy 8.0.1 | SARIF `ruleId: CC001`; values greater than 15 block, with the measurement and source location read from SARIF. |
-| Exact duplication | TS/JS, PHP, Python | jscpd 5.2.0 | Mild mode, minimum 50 tokens and 5 lines; tests are excluded. Native fingerprints are the baseline keys. |
+| Exact duplication | TS/JS, PHP, Python | jscpd 5.2.0 | Mild mode, minimum 50 tokens and 5 lines; tests are excluded from every blocking check. Native fingerprints are the baseline keys. |
 | Unused code | TS/JS | Knip 6.35.1 | Unused files, exports, types, dependencies, and devDependencies. |
 | Unused code | PHP | composer-unused 0.9.6, composer-require-checker 4.24.0, PHPStan 2.2.13 with ShipMonk dead-code-detector 1.4.0 | Unused packages, invalid or unused Composer requirements, and dead code. |
 | Unused code | Python | Vulture 2.16 and deptry 0.25.1 | Unused code and dependency problems. |
@@ -73,7 +77,7 @@ The comparison is per key. A reduction in one finding cannot fund an increase in
 
 ## Exact duplication
 
-The duplication gate uses jscpd 5.2.0 in mild mode with `minTokens: 50` and `minLines: 5`. Tests are excluded through the built-in test exclusion list regardless of consumer paths; consumer `exclude` patterns apply as well. The tool writes a native artifact-side baseline while scanning, but the committed quality snapshot remains owned by the code-quality comparator. Small repositories whose source files are all below that detection window yield an empty baseline; a repository with no candidate source files fails clearly before jscpd runs.
+The duplication gate uses jscpd 5.2.0 in mild mode with `minTokens: 50` and `minLines: 5`. Tests are excluded from every blocking check through the built-in test exclusion list regardless of consumer paths; consumer `exclude` patterns apply as well. The tool writes a native artifact-side baseline while scanning, but the committed quality snapshot remains owned by the code-quality comparator. Small repositories whose source files are all below that detection window yield an empty baseline; a repository with no candidate source files fails clearly before jscpd runs.
 
 For ordinary checks, keys are normalized as `<file> | <rule> | <anchor>`. Duplication is the explicit exception: each native jscpd fingerprint is the key and its native occurrence count is the value. The native JSON report and baseline are retained under the adapter artifact directory for review.
 

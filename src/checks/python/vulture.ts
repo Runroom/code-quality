@@ -47,7 +47,7 @@ export const vultureAdapter: CheckAdapter = {
   configFiles: () => [],
   command: (ctx) => ({
     bin: "vulture",
-    args: [...ctx.paths, "--exclude", excludeGlobs(ctx.config, false).join(","),
+    args: [...ctx.paths, "--exclude", excludeGlobs(ctx.config, true).join(","),
       "--min-confidence", "0"],
     exitCodes: [0, 3],
   }),

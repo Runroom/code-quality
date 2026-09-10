@@ -80,7 +80,11 @@ describe("loadConfig", () => {
 
   it("fails when an overridden language has no usable default path", () => {
     withFixture("python.yml", {}, [], (root) => {
-      expectLoadFailure(root, "python: no usable source path (src)");
+      expectLoadFailure(
+        root,
+        "python: no usable source path (src). Create .code-quality.yml with "
+          + "paths.python listing your source roots, e.g. paths: { python: [app, lib] }",
+      );
     });
   });
 
@@ -115,6 +119,22 @@ describe("loadConfig", () => {
     });
   });
 
+});
+
+it.each([
+  ["ts", "src"],
+  ["php", "src, lib, app"],
+  ["python", "src"],
+] as const)("suggests configured roots when %s has no default path", (language, candidates) => {
+  withRoot(
+    { ".code-quality.yml": `languages: [${language}]\n` },
+    [],
+    (root) => expectLoadFailure(
+      root,
+      `${language}: no usable source path (${candidates}). Create .code-quality.yml with `
+        + `paths.${language} listing your source roots, e.g. paths: { ${language}: [app, lib] }`,
+    ),
+  );
 });
 
 describe("resolved consumer config", () => {

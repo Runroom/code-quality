@@ -54,7 +54,7 @@ export const complexipyAdapter: CheckAdapter = {
   command: (ctx) => ({
     bin: "complexipy",
     args: ["--max-complexity-allowed", String(POLICY.cognitive), "--quiet", "--output-format", "sarif",
-      "--output", toolOutput(ctx, "complexipy.sarif").path, ...excludeGlobs(ctx.config, false)
+      "--output", toolOutput(ctx, "complexipy.sarif").path, ...excludeGlobs(ctx.config, true)
         .flatMap((glob) => ["--exclude", glob]), ...ctx.paths],
     exitCodes: [0, 1],
   }),
