@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { assertInScope, FindingsBuilder, parseJsonOutput } from "../shared/kit.ts";
-import type { CheckAdapter, CheckContext, Findings } from "../shared/kit.ts";
+import type { CheckAdapter, CheckContext, ParsedFindings } from "../shared/kit.ts";
 
 const reportSchema = z.looseObject({
   summary: z.looseObject({
@@ -17,13 +17,16 @@ const reportSchema = z.looseObject({
   }),
 });
 
-export function dependencyCruiserFindings(ctx: CheckContext, input: unknown): Findings {
+export function dependencyCruiserFindings(ctx: CheckContext, input: unknown): ParsedFindings {
   const report = reportSchema.parse(input);
   const findings = new FindingsBuilder();
   for (const violation of report.summary.violations) {
     if (violation.rule.severity === "ignore") continue;
     assertInScope(violation.from, ctx.paths);
-    findings.add(violation.from, violation.rule.name, violation.to, 1);
+    findings.add({
+      file: violation.from, rule: violation.rule.name, anchor: violation.to, value: 1,
+      message: `${violation.from} must not import ${violation.to} (rule ${violation.rule.name})`,
+    });
   }
   return findings.build();
 }

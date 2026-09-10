@@ -5,8 +5,13 @@ import type { ResolvedConfig } from "../config/types.ts";
 
 export interface Selection {
   adapters: CheckAdapter[];
-  skipped: Array<{ id: string; reason: string }>;
+  skipped: SkippedEntry[];
   failed: Array<{ id: string; message: string }>;
+}
+
+export interface SkippedEntry {
+  id: string;
+  reason: string;
 }
 
 type SelectionState = Selection;

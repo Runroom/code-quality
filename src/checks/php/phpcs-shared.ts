@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { addAnchoredFinding, excludeGlobs, extractMeasurement, fail, FindingsBuilder, relativizeFrom, xml } from "../shared/kit.ts";
-import type { CheckContext, Findings, ToolInvocation } from "../shared/kit.ts";
+import type { CheckContext, ParsedFindings, ToolInvocation } from "../shared/kit.ts";
 
 const phpcsSchema = z.looseObject({
   totals: z.looseObject({
@@ -47,7 +47,7 @@ export async function phpcsFindings(
   ctx: CheckContext,
   input: unknown,
   rule: PhpcsRule | readonly PhpcsRule[],
-): Promise<Findings> {
+): Promise<ParsedFindings> {
   const report = phpcsSchema.parse(input);
   const findings = new FindingsBuilder();
   const rules = Array.isArray(rule) ? rule : [rule];
@@ -83,6 +83,7 @@ async function addMessages(
     await addAnchoredFinding(ctx, findings, {
       file, rule: rule.ruleLabel, value, line: message.line,
       column: message.column, blockMode: false,
+      message: message.message, threshold: rule.minimumExclusive,
     });
   }
 }

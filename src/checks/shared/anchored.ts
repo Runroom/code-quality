@@ -1,5 +1,5 @@
 import {
-  byteOffsetToIndex,
+  byteOffsetToLineColumn,
   firstNonBlankByteOffset,
   lineColumnToByteOffset,
 } from "../../core/anchor/offsets.ts";
@@ -18,6 +18,8 @@ interface AnchoredFinding {
   anchorSuffix?: string | undefined;
   fallbackAnchor?: string | undefined;
   symbol?: string | undefined;
+  message?: string | undefined;
+  threshold?: number | undefined;
 }
 
 function byteOffset(source: string, location: Location): number {
@@ -28,10 +30,13 @@ function byteOffset(source: string, location: Location): number {
   return firstNonBlankByteOffset(source, location.line);
 }
 
-function fallbackLine(source: string, location: Location): number {
-  if ("line" in location) return location.line;
-  const index = byteOffsetToIndex(source, location.offset);
-  return source.slice(0, index).split("\n").length;
+function detailLocation(source: string, location: Location): { line: number; column?: number } {
+  if ("line" in location) {
+    return location.column === undefined
+      ? { line: location.line }
+      : { line: location.line, column: location.column };
+  }
+  return byteOffsetToLineColumn(source, location.offset);
 }
 
 async function resolveAnchor(
@@ -63,10 +68,16 @@ export async function addAnchoredFinding(
   const file = relativize(ctx.root, input.file);
   assertInScope(file, ctx.paths);
   const source = ctx.readSource(file);
+  const location = detailLocation(source, input);
   const anchor = await resolveAnchor(ctx, {
     file, source, offset: byteOffset(source, input), blockMode: input.blockMode,
     fallback: input.fallbackAnchor, symbol: input.symbol,
-    line: fallbackLine(source, input),
+    line: location.line,
   });
-  findings.add(file, input.rule, `${anchor}${input.anchorSuffix ?? ""}`, input.value);
+  const message = input.message === undefined ? {} : { message: input.message };
+  const threshold = input.threshold === undefined ? {} : { threshold: input.threshold };
+  findings.add({
+    file, rule: input.rule, anchor: `${anchor}${input.anchorSuffix ?? ""}`, value: input.value,
+    ...location, ...message, ...threshold,
+  });
 }

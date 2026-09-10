@@ -1,11 +1,11 @@
 import { assertInScope, fail, FindingsBuilder } from "../shared/kit.ts";
 import { resolveModuleFile } from "./modules.ts";
-import type { CheckAdapter, CheckContext, Findings } from "../shared/kit.ts";
+import type { CheckAdapter, CheckContext, ParsedFindings } from "../shared/kit.ts";
 
 const RESULT = /^(?<name>.+?) (?<result>KEPT|BROKEN)( \([^)]*\))?$/u;
 const TOTALS = /^Contracts: (?<kept>\d+) kept, (?<broken>\d+) broken\.$/u;
 const VIOLATION = /^(?<lower>\S+) is not allowed to import (?<upper>\S+):$/u;
-const CHAIN = /^-?\s*(& )?(?<lower>\S+)( -> (?<upper>\S+))? \(l\.\d+(, l\.\d+)*\)$/u;
+const CHAIN = /^-?\s*(& )?(?<lower>\S+)( -> (?<upper>\S+))? \(l\.(?<line>\d+)(, l\.\d+)*\)$/u;
 const CONTINUATION = /^\s+& \S+ \(l\.\d+(, l\.\d+)*\)$/u;
 
 interface ParseState {
@@ -78,6 +78,7 @@ function addChainViolation(
   if (!state.pending || !state.current || !upper) return true;
   addImportFinding(ctx, findings, {
     moduleId: lower, rule: `import-linter:${state.current}`, upper,
+    line: Number(match.groups.line),
   });
   state.pending = undefined;
   return true;
@@ -97,16 +98,27 @@ function addUndeclared(
 function addImportFinding(
   ctx: CheckContext,
   findings: FindingsBuilder,
-  input: { moduleId: string; rule: string; upper: string },
+  input: { moduleId: string; rule: string; upper: string; line?: number },
 ): void {
+  const contract = input.rule.split(":")[1]!;
   const file = resolveModuleFile(ctx.root, ctx.paths, input.moduleId);
   if (file === input.moduleId) {
-    const contract = input.rule.split(":")[1];
-    findings.add(input.moduleId, `import-linter:${contract}:unresolved`, input.upper, 1);
+    findings.add({
+      file: input.moduleId, rule: `import-linter:${contract}:unresolved`,
+      anchor: input.upper, value: 1,
+      message: `${input.moduleId} is not allowed to import ${input.upper} (${contract})`,
+      ...(input.line === undefined ? {} : { line: input.line }),
+    });
     return;
   }
   assertInScope(file, ctx.paths);
-  findings.add(file, input.rule, input.upper, 1);
+  const undeclared = input.rule.endsWith(":undeclared");
+  findings.add({ file, rule: input.rule, anchor: input.upper, value: 1,
+    message: undeclared
+      ? `${input.moduleId} is not declared in ${contract}`
+      : `${input.moduleId} is not allowed to import ${input.upper} (${contract})`,
+    ...(input.line === undefined ? {} : { line: input.line }),
+  });
 }
 
 function parseBrokenLine(
@@ -155,7 +167,7 @@ function validateTotals(state: ParseState): void {
   }
 }
 
-export function importLinterFindings(ctx: CheckContext, stdout: string): Findings {
+export function importLinterFindings(ctx: CheckContext, stdout: string): ParsedFindings {
   const findings = new FindingsBuilder();
   const state = initialState();
   for (const line of stdout.split(/\r?\n/u)) parseLine(ctx, findings, state, line);

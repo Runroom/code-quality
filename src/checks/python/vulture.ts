@@ -1,5 +1,5 @@
 import { addAnchoredFinding, excludeGlobs, fail, FindingsBuilder, relativizeFrom } from "../shared/kit.ts";
-import type { CheckAdapter, CheckContext, Findings } from "../shared/kit.ts";
+import type { CheckAdapter, CheckContext, ParsedFindings } from "../shared/kit.ts";
 
 const LINE = /^(?<file>[^:]+):(?<line>\d+): (?<message>unused (?<typ>attribute|class|function|import|method|property|variable) '(?<name>[^']+)'|unreachable code after '(?<stmt>[^']+)'|unsatisfiable '(?<cond>[^']+)' condition) \((?<confidence>\d+)% confidence\)$/u;
 
@@ -8,6 +8,7 @@ interface VultureFinding {
   line: number;
   category: string;
   identity: string;
+  message: string;
 }
 
 function parseLine(line: string): VultureFinding {
@@ -17,7 +18,8 @@ function parseLine(line: string): VultureFinding {
   if (!identity) return fail(`Unknown vulture line: ${line}`);
   const category = match.groups.typ ?? (match.groups.stmt
     ? "unreachable_code" : "unsatisfiable_condition");
-  return { file: match.groups.file!, line: Number(match.groups.line), category, identity };
+  const message = `${match.groups.message} (${match.groups.confidence}% confidence)`;
+  return { file: match.groups.file!, line: Number(match.groups.line), category, identity, message };
 }
 
 async function addFinding(
@@ -28,11 +30,12 @@ async function addFinding(
   const file = relativizeFrom(ctx.root, item.file);
   await addAnchoredFinding(ctx, findings, {
     file, rule: `vulture-${item.category}`, value: 1, line: item.line,
-    blockMode: false, fallbackAnchor: "/", anchorSuffix: `#${item.identity}`,
+    message: item.message, blockMode: false, fallbackAnchor: "/",
+    anchorSuffix: `#${item.identity}`,
   });
 }
 
-export async function vultureFindings(ctx: CheckContext, stdout: string): Promise<Findings> {
+export async function vultureFindings(ctx: CheckContext, stdout: string): Promise<ParsedFindings> {
   const findings = new FindingsBuilder();
   for (const line of stdout.split(/\r?\n/u).filter((value) => value.length > 0)) {
     await addFinding(ctx, findings, parseLine(line));

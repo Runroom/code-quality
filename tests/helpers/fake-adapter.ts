@@ -3,6 +3,7 @@ import type { RunDeps } from "../../src/core/runner/run-adapter.ts";
 import type {
   Applicability,
   CheckAdapter,
+  FindingDetails,
   Findings,
   Language,
   LogicalCheckId,
@@ -11,6 +12,7 @@ import type {
 interface FakeAdapterOptions {
   id: string;
   findings?: Findings;
+  details?: FindingDetails;
   exitCode?: number;
   language?: Language;
   check?: LogicalCheckId;
@@ -36,6 +38,7 @@ export function fakeAdapter(options: FakeAdapterOptions): CheckAdapter {
   const check = options.check ?? checkFor(options.id);
   const exitCode = options.exitCode ?? 0;
   const output = JSON.stringify(options.findings ?? {});
+  const details = options.details ?? {};
   return {
     id: options.id,
     check,
@@ -48,7 +51,10 @@ export function fakeAdapter(options: FakeAdapterOptions): CheckAdapter {
       args: ["-e", `process.stdout.write(JSON.stringify(${output}))`],
       exitCodes: [exitCode],
     }),
-    parse: async (_ctx, result) => JSON.parse(result.stdout) as Findings,
+    parse: async (_ctx, result) => ({
+      findings: JSON.parse(result.stdout) as Findings,
+      details,
+    }),
   };
 }
 

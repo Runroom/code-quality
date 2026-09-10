@@ -16,6 +16,17 @@ interface ProgramState {
   exitCode: number;
 }
 
+interface GateFlags {
+  update?: boolean;
+  initialize?: boolean;
+  all?: boolean;
+  artifacts?: string;
+}
+
+interface ReportFlags {
+  output?: string;
+}
+
 const PROGRAM_STATES = new WeakMap<Command, ProgramState>();
 
 function doctorDependencies(deps: CliDeps): { assets: string; probe: (bin: string) => string; exists: (path: string) => boolean; readInstalled: (path: string) => unknown } {
@@ -44,12 +55,12 @@ async function checkHandler(
   deps: CliDeps,
   state: ProgramState,
   ids: string[],
-  flags: { update?: boolean; initialize?: boolean },
+  flags: GateFlags,
 ): Promise<number> {
   const mode = resolveMode(flags);
   if (mode === "update") assertNotInCi(deps.env, "--update");
   if (mode === "initialize") assertNotInCi(deps.env, "--initialize");
-  const code = await checkCommand(ids, mode, deps);
+  const code = await checkCommand(ids, mode, deps, { all: flags.all, artifacts: flags.artifacts });
   state.exitCode = code;
   return code;
 }
@@ -59,25 +70,31 @@ function registerCommands(program: Command, deps: CliDeps, state: ProgramState):
     .description("Run selected quality checks")
     .option("--update", "refresh existing baselines")
     .option("--initialize", "create missing baselines")
-    .action(async (ids: string[], flags: { update?: boolean; initialize?: boolean }) => {
+    .option("--all", "print all current findings")
+    .option("--artifacts <dir>", "keep raw tool output and logs")
+    .action(async (ids: string[], flags: GateFlags) => {
       state.exitCode = await checkHandler(deps, state, ids, flags);
     });
   program.command("baseline")
     .description("Refresh existing baselines")
-    .action(async () => {
+    .option("--all", "print all current findings")
+    .option("--artifacts <dir>", "keep raw tool output and logs")
+    .action(async (flags: GateFlags) => {
       assertNotInCi(deps.env, "baseline");
-      state.exitCode = await baselineCommand(deps);
+      state.exitCode = await baselineCommand(deps, flags);
     });
   program.command("report")
     .description("Generate advisory reports")
-    .action(async () => {
-      state.exitCode = await reportCommand(deps);
+    .option("--output <dir>", "report output directory")
+    .action(async (flags: ReportFlags) => {
+      state.exitCode = await reportCommand(deps, flags);
     });
   program.command("init")
     .description("Scaffold and initialize quality baselines")
-    .action(async () => {
+    .option("--artifacts <dir>", "keep raw tool output and logs")
+    .action(async (flags: GateFlags) => {
       assertNotInCi(deps.env, "init");
-      state.exitCode = await initCommand(deps);
+      state.exitCode = await initCommand(deps, flags);
     });
   program.command("versions").description("Print pinned tool versions").action(async () => {
     state.exitCode = await versionsCommand(deps);
@@ -91,7 +108,7 @@ function createProgram(deps: CliDeps): Command {
   const state: ProgramState = { exitCode: 0 };
   const program = new Command("code-quality")
     .description("Runroom incremental quality gate")
-    .version("1.1.2")
+    .version("1.1.3")
     .exitOverride()
     .configureOutput({
       writeOut: (value) => deps.stdout(value),

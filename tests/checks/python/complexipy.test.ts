@@ -38,14 +38,29 @@ describe("complexipy synthetic parser", () => {
   it("rejects two results for the same function as ambiguous", async () => {
     await expect(complexipyFindings(ctx, sarif(undefined, 2))).rejects.toThrow("Ambiguous");
   });
+
+  it("passes an optional SARIF start column to details", async () => {
+    const input = sarif() as { runs: Array<{ results: Array<{ locations: Array<{
+      physicalLocation: { region: { startColumn?: number } };
+    }> }> }> };
+    input.runs[0]!.results[0]!.locations[0]!.physicalLocation.region.startColumn = 7;
+    const parsed = await complexipyFindings(ctx, input);
+    expect(Object.values(parsed.details)[0]).toMatchObject({ line: 1, column: 7 });
+  });
 });
 
 describe("complexipy captured fixture", () => {
   it("finds busy cognitive complexity", async () => {
     const input = JSON.parse(readFileSync(nativeFile, "utf8")) as unknown;
     const parsed = await complexipyFindings(checkContext(root, "python"), input);
-    expect(parsed).toEqual({
+    expect(parsed.findings).toEqual({
       "src/demo_app/complex.py | cognitive-complexity | /function:busy": 20,
     });
+    expect(parsed.details["src/demo_app/complex.py | cognitive-complexity | /function:busy"])
+      .toMatchObject({
+        line: 1,
+        message: "Function 'busy' has a cognitive complexity of 20, which exceeds the maximum allowed complexity of 15.",
+        threshold: 15,
+      });
   });
 });

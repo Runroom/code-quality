@@ -23,10 +23,12 @@ Review the generated `.code-quality.yml`, source paths, `.github/workflows/quali
 - `.code-quality.yml`;
 - `quality/<adapter>-baseline.json`;
 - `.github/workflows/quality.yml`;
-- `Makefile` if absent; and
-- `.gitignore` entries for `artifacts/quality/` and `.code-quality-tmp/`.
+- `Makefile` if absent, with `quality`, `quality-all`, `quality-baseline`, `quality-report`, and `quality-doctor` targets plus the `CODE_QUALITY_IMAGE` variable; and
+- the `.gitignore` entry used by `report --output` (`artifacts/quality/`).
 
-Commit the `quality/` baselines along with the reviewed configuration. `artifacts/quality/` is per-run evidence and is never committed. Existing findings are recorded once; later checks fail on new or worsened findings and on stale baseline entries.
+Commit the `quality/` baselines along with the reviewed configuration. The directory produced by `report --output` is per-run evidence and is never committed. Existing findings are recorded once; later checks fail on new or worsened findings and on stale baseline entries.
+
+The generated Makefile uses `$$PWD`, which is Make escaping for `$PWD`; run its targets through `make` so Make expands the variable.
 
 `init` uses conventional source roots: `src/` and `assets/` for TS/JS, `src/`, `lib/`, and `app/` for PHP, `src/` for Python, and `templates/` and `assets/` for web sources. If an auto-detected manifest has no source files in its default roots, `init` discovers eligible depth-1 source directories and records them in `paths.<language>`; excluded and conventional non-source directories are ignored. If no roots are discovered, that language is omitted and the CLI prints a `Notice: ...` line explaining how to add `paths.<language>`. Explicitly configured languages and paths still fail when they contain no source files.
 
@@ -54,7 +56,17 @@ The main local command is:
 docker run --rm -v "$PWD:/work" ghcr.io/runroom/code-quality:v1 check
 ```
 
-The generated Makefile provides `make quality` for that check and `make quality-baseline` for a reviewed local reduction-only refresh. The CLI also provides:
+The generated Makefile provides these commands:
+
+| Make target | Command |
+| --- | --- |
+| `make quality` | `code-quality check` |
+| `make quality-all` | `code-quality check --all` |
+| `make quality-baseline` | `code-quality baseline` |
+| `make quality-report` | `code-quality report` |
+| `make quality-doctor` | `code-quality doctor` |
+
+The CLI also provides:
 
 - `check [checks...]` to run blocking checks;
 - `baseline` to refresh existing baselines only when there is no regression;
@@ -97,7 +109,7 @@ jobs:
       working-directory: "."
 ```
 
-The reusable job checks out the full history, runs the optional setup command, invokes plain `code-quality check`, and uploads `artifacts/quality/` for 14 days. It never passes `--update` or `--initialize`, so CI never writes baselines. Knip and the PHP unused checks need installed dependencies before they run: use `setup: pnpm install --frozen-lockfile` for pnpm, `setup: npm ci` for npm, or `setup: composer install` for Composer. The first two create `node_modules/` for Knip; Composer creates `vendor/` for the PHP unused checks.
+The reusable job checks out the full history, runs the optional setup command, and invokes plain `code-quality check`. Failing findings produce GitHub annotations, and the job summary is written to `GITHUB_STEP_SUMMARY`. It never passes `--update` or `--initialize`, so CI never writes baselines. Knip and the PHP unused checks need installed dependencies before they run: use `setup: pnpm install --frozen-lockfile` for pnpm, `setup: npm ci` for npm, or `setup: composer install` for Composer. The first two create `node_modules/` for Knip; Composer creates `vendor/` for the PHP unused checks.
 
 ## Check selection
 
@@ -117,9 +129,28 @@ The CLI prints `Notice:` lines for non-fatal limitations, including source-root 
 
 Initialize a check once with `check --initialize` after reviewing its current findings. Plain `check` fails when a finding is new or its value increased. A finding that disappears or decreases is marked stale and also fails until the baseline is refreshed. `baseline` is a local reduction-only update: it writes a tighter snapshot only when there is no regression. A tool-version or configuration-hash mismatch is an explicit regeneration event; review the change, remove the affected snapshot, and run `check --initialize`. CI refuses all baseline-writing modes.
 
-## Artifacts
+## Output
 
-Each run writes to `artifacts/quality/<adapter>/`. The directory contains the native `stdout.log` and `stderr.log`, generated/native reports where a tool provides them, `comparison.json` with regressions and stale entries, and `summary.md`. The reusable workflow uploads the quality directories even when the check fails, and the CLI appends summaries to `GITHUB_STEP_SUMMARY` when that environment variable is provided.
+`check` writes one line to stdout for each failing finding: new or worsened regressions and stale baseline entries. Locations are `file:line:col`, `file:line`, or `file`. Ordinary finding lines use `file:line:col  rule  message  [new]` (the message is the tool's own text and already states the limit), with `[worsened P → V]`, `[improved P → V]` when a finding's value decreased, and `[stale: was P]` when it disappeared. Duplication locations use `a:start-end ↔ b:start-end`. `check --all` also prints every unchanged current finding with `[baselined]`.
+
+After the finding lines, stdout contains a padded summary row for each adapter, including skipped and error rows, followed by `code-quality: PASS (N checks)` or `code-quality: FAIL (F of N checks)`. stderr keeps one line per failing adapter, such as `ts-complexity: 2 regressions` or `ts-complexity: 3 stale entries; run code-quality baseline and commit the reduced baseline`.
+
+A realistic output block is:
+
+```text
+src/orders/checkout.py:42:5  C901  `checkout` is too complex (12 > 10)  [new]
+src/services/render.ts:18:1  eslint(max-params)  Function 'render' has too many parameters (6). Maximum allowed is 4.  [worsened 4 → 6]
+src/dup-a.ts:3-14 ↔ src/dup-b.ts:3-14  duplication  12 lines, 61 tokens duplicated  [new]
+src/legacy/old.py  vulture-unused-function  /#old  [stale: was 1]
+ts-complexity      oxlint 1.82.0  280 findings · 2 new · 0 stale  FAIL
+python-complexity  ruff 0.16.6    24 findings · 1 new · 1 stale  FAIL
+ts-duplication     jscpd 5.2.0    8 clone occurrences · 1 new · 0 stale  FAIL
+code-quality: FAIL (3 of 3 checks)
+```
+
+`check`, `baseline`, and `init` accept `--artifacts <dir>` to retain raw tool output plus `stdout.log` and `stderr.log` per adapter. Without it, adapter output stays in a temporary directory and no adapter artifacts or logs are written by default. `report --output <dir>` selects the advisory report directory and defaults to `artifacts/quality/`.
+
+In GitHub Actions, each regression also emits a `::error file=…` annotation. The current Markdown summary is appended to `GITHUB_STEP_SUMMARY` when that environment variable is available.
 
 ## Configuration reference
 

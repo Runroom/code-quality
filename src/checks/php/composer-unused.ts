@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { excludeGlobs, FindingsBuilder, parseJsonOutput } from "../shared/kit.ts";
 import { requireVendor } from "./vendor.ts";
-import type { CheckAdapter, CheckContext, Findings } from "../shared/kit.ts";
+import type { CheckAdapter, CheckContext, ParsedFindings } from "../shared/kit.ts";
 
 const reportSchema = z.strictObject({
   "used-packages": z.array(z.object({ name: z.string() })).optional(),
@@ -11,14 +11,18 @@ const reportSchema = z.strictObject({
   "zombie-exclusions": z.array(z.string()).optional(),
 });
 
-export function composerUnusedFindings(input: unknown): Findings {
+export function composerUnusedFindings(input: unknown): ParsedFindings {
   const report = reportSchema.parse(input);
   const findings = new FindingsBuilder();
   for (const name of report["unused-packages"] ?? []) {
-    findings.add("composer.json", "unused-package", name, 1);
+    findings.add({ file: "composer.json", rule: "unused-package", anchor: name, value: 1,
+      message: `unused package '${name}'`,
+    });
   }
   for (const filter of report["zombie-exclusions"] ?? []) {
-    findings.add("composer.json", "zombie-exclusion", filter, 1);
+    findings.add({ file: "composer.json", rule: "zombie-exclusion", anchor: filter, value: 1,
+      message: `zombie exclusion '${filter}'`,
+    });
   }
   return findings.build();
 }

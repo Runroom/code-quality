@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { addAnchoredFinding, excludeGlobs, fail, FindingsBuilder, parseJsonOutput, relativizeFrom } from "../shared/kit.ts";
 import { requireVendor } from "./vendor.ts";
-import type { CheckAdapter, CheckContext, Findings } from "../shared/kit.ts";
+import type { CheckAdapter, CheckContext, ParsedFindings } from "../shared/kit.ts";
 
 const reportSchema = z.looseObject({
   totals: z.looseObject({ errors: z.number().int(), file_errors: z.number().int() }),
@@ -33,7 +33,7 @@ function phpstanConfig(ctx: CheckContext): string {
     + "    reportUnmatchedIgnoredErrors: false\n";
 }
 
-export async function phpstanFindings(ctx: CheckContext, input: unknown): Promise<Findings> {
+export async function phpstanFindings(ctx: CheckContext, input: unknown): Promise<ParsedFindings> {
   const report = reportSchema.parse(input);
   if (report.errors.length > 0) return fail(`PHPStan errors: ${report.errors.join("; ")}`);
   const findings = new FindingsBuilder();
@@ -61,6 +61,7 @@ async function addMessages(
     await addAnchoredFinding(ctx, findings, {
       file, rule: "dead-code", value: 1, line: message.line, blockMode: false,
       anchorSuffix: `#${message.identifier}#${member}`, symbol: member,
+      message: message.message,
     });
   }
 }

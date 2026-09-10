@@ -42,9 +42,9 @@ describe("deptrac synthetic parser", () => {
       "Domain\\Entity must not depend on Infrastructure\\Repo (Domain on Infrastructure)",
     ) as { files: Record<string, { messages: Array<{ line: number }> }> };
     input.files["src/a.php"]!.messages[0]!.line = 2;
-    await expect(deptracFindings(
+    expect((await deptracFindings(
       checkContext("/r", "php", { "src/a.php": outsideClass }), input,
-    )).resolves.toEqual({
+    )).findings).toEqual({
       "src/a.php | deptrac:Domain-on-Infrastructure | Domain\\Entity": 1,
     });
   });
@@ -60,12 +60,18 @@ describe("deptrac synthetic parser", () => {
 
 describe("deptrac captured fixture", () => {
   it("finds both layer violations", async () => {
-    const parsed = await deptracFindings(
-      checkContext(root, "php"), JSON.parse(readFileSync(nativeFile, "utf8")) as unknown,
+    const capturedReport = JSON.parse(readFileSync(nativeFile, "utf8")) as {
+      files: Record<string, { messages: Array<{ message: string; line: number }> }>;
+    };
+    const { findings: parsed, details } = await deptracFindings(
+      checkContext(root, "php"), capturedReport,
     );
     expect(parsed).toEqual({
       "src/Domain/Entity.php | deptrac:Domain-on-Infrastructure | /class:Entity/method:save": 1,
       "src/Infrastructure/Repo.php | deptrac:Infrastructure-on-Domain | /class:Repo/method:store": 1,
     });
+    const message = capturedReport.files["/work/src/Domain/Entity.php"]!.messages[0]!;
+    expect(details["src/Domain/Entity.php | deptrac:Domain-on-Infrastructure | /class:Entity/method:save"])
+      .toMatchObject({ line: message.line, message: message.message });
   });
 });

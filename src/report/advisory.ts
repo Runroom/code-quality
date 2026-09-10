@@ -120,19 +120,20 @@ interface ContextInput {
   config: ResolvedConfig;
   language: Language;
   tempDir: string;
+  output: string;
   report: AdvisoryReport;
   anchor: CheckContext["anchor"];
 }
 
 function reportContext(input: ContextInput): CheckContext {
-  const { config, language, tempDir, report, anchor } = input;
+  const { config, language, tempDir, output, report, anchor } = input;
   return {
     root: config.root,
     config,
     language,
     paths: configPaths(config),
     tempDir,
-    artifactDir: artifactDir(config.root, report.id),
+    artifactDir: artifactDir(output, report.id),
     readSource: (file) => readFileSync(join(config.root, file), "utf8"),
     anchor,
     notice: () => {},
@@ -151,11 +152,15 @@ function selectedReports(config: ResolvedConfig): AdvisoryReport[] {
   );
 }
 
-function runReport(report: AdvisoryReport, config: ResolvedConfig, deps: ReportDeps): void {
+function runReport(report: AdvisoryReport, config: ResolvedConfig, deps: ReportDeps): string {
+  let directory = "";
   withTempDir((tempDir) => {
     const language = report.languages.find((candidate) => config.languages.includes(candidate));
     if (language === undefined) return fail(`No selected language for report '${report.id}'`);
-    const context = reportContext({ config, language, tempDir, report, anchor: deps.run.anchor });
+    const context = reportContext({
+      config, language, tempDir, output: deps.output, report, anchor: deps.run.anchor,
+    });
+    directory = context.artifactDir;
     if (report.id === "fallow-health") {
       writeGenerated(tempDir, [{ path: "fallowrc.json", content: FALLBACK_CONFIG }]);
     }
@@ -172,13 +177,15 @@ function runReport(report: AdvisoryReport, config: ResolvedConfig, deps: ReportD
     }
     report.validate(context, result);
   });
+  return directory;
 }
 
 export async function reportCommand(deps: ReportDeps): Promise<number> {
   try {
     const config = loadConfig(deps.cwd);
     const reports = selectedReports(config);
-    for (const report of reports) runReport(report, config, deps);
+    const completed = reports.map((report) => ({ id: report.id, directory: runReport(report, config, deps) }));
+    for (const report of completed) deps.stdout(`Report ${report.id}: ${report.directory}\n`);
     return 0;
   } catch (error) {
     deps.stderr(`${error instanceof Error ? error.message : String(error)}\n`);

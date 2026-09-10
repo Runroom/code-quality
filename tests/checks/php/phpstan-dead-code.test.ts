@@ -35,16 +35,16 @@ function messagesReport(messages: Array<{ message: string; line: number; identif
 
 describe("phpstan dead-code synthetic parser", () => {
   it("accepts dotted ShipMonk dead-code identifiers", async () => {
-    await expect(phpstanFindings(
+    expect((await phpstanFindings(
       checkContext("/r", "php", { "src/a.php": source }),
       report("shipmonk.deadProperty.neverRead"),
-    )).resolves.toEqual({
+    )).findings).toEqual({
       "src/a.php | dead-code | /class:Dead/method:never#shipmonk.deadProperty.neverRead#never": 1,
     });
   });
 
   it("disambiguates properties in the same class", async () => {
-    await expect(phpstanFindings(
+    expect((await phpstanFindings(
       checkContext("/r", "php", { "src/a.php": propertiesSource }),
       messagesReport([
         {
@@ -58,7 +58,7 @@ describe("phpstan dead-code synthetic parser", () => {
           identifier: "shipmonk.deadProperty.neverRead",
         },
       ]),
-    )).resolves.toEqual({
+    )).findings).toEqual({
       "src/a.php | dead-code | /class:Dead#shipmonk.deadProperty.neverRead#$locales": 1,
       "src/a.php | dead-code | /class:Dead#shipmonk.deadProperty.neverRead#$settings": 1,
     });
@@ -102,8 +102,11 @@ describe("phpstan dead-code synthetic parser", () => {
 
 describe("phpstan captured fixture", () => {
   it("finds all five dead methods", async () => {
-    const parsed = await phpstanFindings(
-      checkContext(root, "php"), JSON.parse(readFileSync(nativeFile, "utf8")) as unknown,
+    const capturedReport = JSON.parse(readFileSync(nativeFile, "utf8")) as {
+      files: Record<string, { messages: Array<{ message: string; line: number }> }>;
+    };
+    const { findings: parsed, details } = await phpstanFindings(
+      checkContext(root, "php"), capturedReport,
     );
     expect(parsed).toEqual({
       "src/Domain/Entity.php | dead-code | /class:Entity/method:save#shipmonk.deadMethod#save": 1,
@@ -112,5 +115,8 @@ describe("phpstan captured fixture", () => {
       "src/Service/Dead.php | dead-code | /class:Dead/method:never#shipmonk.deadMethod#never": 1,
       "src/Service/Uses.php | dead-code | /class:Uses/method:composerVersion#shipmonk.deadMethod#composerVersion": 1,
     });
+    const message = capturedReport.files["/work/src/Service/Complex.php"]!.messages[0]!;
+    expect(details["src/Service/Complex.php | dead-code | /class:Complex/method:run#shipmonk.deadMethod#run"])
+      .toMatchObject({ line: message.line, message: message.message });
   });
 });

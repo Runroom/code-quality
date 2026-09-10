@@ -10,8 +10,11 @@ const current = {
 };
 const baseline = { ...current, findings: { key: 1 } };
 const equal = { regressions: [], stale: [] };
-const regression = { regressions: ["key: 1 → 2"], stale: [] };
-const stale = { regressions: [], stale: ["key"] };
+const regression = {
+  regressions: [{ key: "key", kind: "worsened" as const, previous: 1, value: 2 }],
+  stale: [],
+};
+const stale = { regressions: [], stale: [{ key: "key", previous: 2 }] };
 
 function expectFailure(decision: Decision, message: string): void {
   expect(decision.action).toBe("fail");
@@ -68,7 +71,7 @@ describe("decide comparison", () => {
   it("fails on regressions", () => {
     expectFailure(
       decide({ mode: "check", exists: true, baseline, current, comparison: regression, id: "ts-fake" }),
-      "ts-fake regressions:\nkey: 1 → 2",
+      "ts-fake: 1 regressions",
     );
   });
 
@@ -82,7 +85,7 @@ describe("decide comparison", () => {
   it("fails check when entries are stale", () => {
     expectFailure(
       decide({ mode: "check", exists: true, baseline, current, comparison: stale, id: "ts-fake" }),
-      "cleanup detected (1 stale entries)",
+      "ts-fake: 1 stale entries; run code-quality baseline and commit the reduced baseline",
     );
   });
 

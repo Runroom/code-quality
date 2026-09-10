@@ -50,12 +50,12 @@ function changedBaseline(context: DecisionContext): Decision {
 }
 
 function regressions(context: DecisionContext): Decision {
-  return failure(`${context.id} regressions:\n${context.comparison!.regressions.join("\n")}`);
+  return failure(`${context.id}: ${context.comparison!.regressions.length} regressions`);
 }
 
 function stale(context: DecisionContext): Decision {
   return failure(
-    `${context.id}: cleanup detected (${context.comparison!.stale.length} stale entries). Run code-quality baseline and commit the reduced baseline.`,
+    `${context.id}: ${context.comparison!.stale.length} stale entries; run code-quality baseline and commit the reduced baseline`,
   );
 }
 

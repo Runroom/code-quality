@@ -83,9 +83,9 @@ The comparison is per key. A reduction in one finding cannot fund an increase in
 
 ## Exact duplication
 
-The duplication gate uses jscpd 5.2.0 in mild mode with `minTokens: 50` and `minLines: 5`. Web duplication enables the `twig`, `html`, `css`, `scss`, and `less` jscpd formats. Tests are excluded from every blocking check through the built-in test exclusion list regardless of consumer paths; consumer `exclude` patterns apply as well. The tool writes a native artifact-side baseline while scanning, but the committed quality snapshot remains owned by the code-quality comparator. Small repositories whose source files are all below that detection window yield an empty baseline; a repository with no candidate source files fails clearly before jscpd runs.
+The duplication gate uses jscpd 5.2.0 in mild mode with `minTokens: 50` and `minLines: 5`. Web duplication enables the `twig`, `html`, `css`, `scss`, and `less` jscpd formats. Tests are excluded from every blocking check through the built-in test exclusion list regardless of consumer paths; consumer `exclude` patterns apply as well. Pass `--artifacts <dir>` when the native jscpd baseline and report need to be retained for inspection; the committed quality snapshot remains owned by the code-quality comparator. Small repositories whose source files are all below that detection window yield an empty baseline; a repository with no candidate source files fails clearly before jscpd runs.
 
-For ordinary checks, keys are normalized as `<file> | <rule> | <anchor>`. Duplication is the explicit exception: each native jscpd fingerprint is the key and its native occurrence count is the value. The native JSON report and baseline are retained under the adapter artifact directory for review.
+For ordinary checks, keys are normalized as `<file> | <rule> | <anchor>`. Duplication is the explicit exception: each native jscpd fingerprint is the key and its native occurrence count is the value. With `--artifacts <dir>`, the native JSON report and baseline are retained under `<dir>/<adapter-id>/` for review.
 
 ## Unused-code checks
 
@@ -147,7 +147,7 @@ layers =
     my_app.domain
 ```
 
-Import-linter output is parsed strictly. Consumer contracts must not set `broken_contract_guidance`: the additional guidance text is not part of the supported normalized result format and causes the parser to reject the report. Keep contracts to the supported result output and use the artifact logs to investigate a broken contract.
+Import-linter output is parsed strictly. Consumer contracts must not set `broken_contract_guidance`: the additional guidance text is not part of the supported normalized result format and causes the parser to reject the report. Keep contracts to the supported result output and use `--artifacts <dir>` to retain raw logs when investigating a broken contract.
 
 When import-linter reports a module that cannot be resolved to a source file, its stable key is `<module id> | import-linter:<contract>:unresolved | <upper>`.
 
@@ -164,6 +164,10 @@ Some supported tree-sitter grammars reject otherwise valid newer syntax. When th
 `check` is the blocking command. It compares every concrete adapter’s findings with its committed snapshot and returns a non-zero exit code for regressions, stale entries, mismatches, or parser/tool failures.
 
 `report` is advisory: it retains full Fallow health and semantic-duplication output, complexipy JSON, and jscpd HTML for investigation. Advisory similarity and health reports do not alter the exact jscpd or complexity baselines and do not turn a report-only measurement into an accepted regression.
+
+### Output
+
+`check` prints one line per failing finding as `file:line:col  rule  message  [new]`, `[worsened P → V]`, or `[stale: was P]`; duplication uses `a:start-end ↔ b:start-end`. `check --all` also prints every current finding with `[baselined]`.
 
 Fallow production discovery may scan the whole repository; blocking findings outside the configured source paths are explicitly skipped.
 

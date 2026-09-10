@@ -51,6 +51,17 @@ function defaultRegistry() {
 let outputs: string[] = [];
 let errors: string[] = [];
 
+function expectRegressionOutput(): void {
+  expect(outputs).toEqual([
+    "src/index.ts:7:3  fake-complexity  Regression found  [new]\n",
+    "ts-alpha  node 0.0.0  0 findings · 0 new · 0 stale  OK\n",
+    "ts-beta   node 0.0.0  1 findings · 1 new · 0 stale  FAIL\n",
+    "ts-gamma  node 0.0.0  0 findings · 0 new · 0 stale  OK\n",
+    "code-quality: FAIL (1 of 3 checks)\n",
+  ]);
+  expect(errors).toEqual(["ts-beta: 1 regressions\n"]);
+}
+
 afterEach(() => {
   outputs = [];
   errors = [];
@@ -66,7 +77,7 @@ describe("CLI program", () => {
     expect(await runCli(["node", "code-quality", "check", "--initialize"], command)).toBe(0);
     expect(readdirSync(join(root, "quality"))).toHaveLength(3);
     expect(await runCli(["node", "code-quality", "check"], command)).toBe(0);
-    expect(outputs.at(-1)).toBe("code-quality: PASS\n");
+    expect(outputs.at(-1)).toBe("code-quality: PASS (3 checks)\n");
   });
 
   it("reports unknown IDs and incompatible or guarded modes", async () => {
@@ -99,14 +110,25 @@ describe("CLI program", () => {
     const root = consumer();
     const first = deps(root);
     expect(await runCli(["node", "code-quality", "check", "--initialize"], first)).toBe(0);
+    outputs = [];
+    errors = [];
     const second = deps(root, [
       fakeAdapter({ id: "ts-alpha", check: "complexity" }),
-      fakeAdapter({ id: "ts-beta", check: "complexity", findings: { regression: 2 } }),
+      fakeAdapter({
+        id: "ts-beta",
+        check: "complexity",
+        findings: { regression: 2 },
+        details: {
+          regression: {
+            file: "src/index.ts", line: 7, column: 3, rule: "fake-complexity",
+            anchor: "function:regression", value: 2, message: "Regression found", threshold: 1,
+          },
+        },
+      }),
       fakeAdapter({ id: "ts-gamma", check: "unused" }),
     ]);
     expect(await runCli(["node", "code-quality", "check"], second)).toBe(1);
-    expect(outputs.join(" ")).toContain("### ts-alpha");
-    expect(errors.join(" ")).toContain("ts-beta regressions");
+    expectRegressionOutput();
   });
 
 });
@@ -118,7 +140,7 @@ describe("CLI parser and summary failures", () => {
     invalid.parse = async () => {
       z.object({ statistics: z.object({ total: z.object({ sources: z.number() }) }) })
         .parse({ statistics: { total: { sources: "nope" } } });
-      return {};
+      return { findings: {}, details: {} };
     };
 
     expect(await runCli(["node", "code-quality", "check", "--initialize"], deps(root, [invalid]))).toBe(1);
@@ -128,10 +150,10 @@ describe("CLI parser and summary failures", () => {
     expect(errors.join(" ")).not.toContain('"issues"');
   });
 
-  it("omits summaries when a baseline is missing", async () => {
+  it("renders an error row when a baseline is missing", async () => {
     const root = consumer();
     expect(await runCli(["node", "code-quality", "check"], deps(root))).toBe(1);
-    expect(outputs.join(" ")).not.toContain("Remaining:");
+    expect(outputs.join(" ")).toContain("ts-alpha  ERROR: quality/ts-alpha-baseline.json is missing");
     expect(errors.join(" ")).toContain("quality/ts-alpha-baseline.json is missing");
   });
 });
@@ -144,7 +166,7 @@ describe("CLI gate aggregation", () => {
     for (const adapter of [first, second]) {
       adapter.parse = async (ctx) => {
         ctx.notice("anchors for src/index.ts fall back to symbol/line keys (grammar could not parse the file)");
-        return {};
+        return { findings: {}, details: {} };
       };
     }
     await runCli(["node", "code-quality", "check", "--initialize"], deps(root, [first, second]));
@@ -214,7 +236,108 @@ describe("CLI auxiliary commands", () => {
     expect(outputs.join(" ")).toContain("oxlint");
     expect(await runCli(["node", "code-quality", "--help"], command)).toBe(0);
   });
+});
 
+describe("CLI check output options", () => {
+  it("prints baselined findings with --all", async () => {
+    const root = consumer();
+    const registry = [fakeAdapter({
+      id: "ts-alpha",
+      findings: { existing: 4 },
+      details: { existing: {
+        file: "src/index.ts", line: 2, rule: "fake-rule", anchor: "function:existing", value: 4,
+      } },
+    })];
+    const command = deps(root, registry);
+    expect(await runCli(["node", "code-quality", "check", "--initialize"], command)).toBe(0);
+    outputs = [];
+    expect(await runCli(["node", "code-quality", "check", "--all"], command)).toBe(0);
+    expect(outputs.join("")).toContain(
+      "src/index.ts:2  fake-rule  fake-rule function:existing  [baselined]\n",
+    );
+  });
+});
+
+describe("CLI baseline output options", () => {
+  it("prints baselined findings with baseline --all", async () => {
+    const root = consumer();
+    const registry = [fakeAdapter({
+      id: "ts-alpha",
+      findings: { existing: 4 },
+      details: { existing: {
+        file: "src/index.ts", rule: "fake-rule", anchor: "function:existing", value: 4,
+      } },
+    })];
+    const command = deps(root, registry);
+    expect(await runCli(["node", "code-quality", "check", "--initialize"], command)).toBe(0);
+    outputs = [];
+    expect(await runCli(["node", "code-quality", "baseline", "--all"], command)).toBe(0);
+    expect(outputs.join("")).toContain(
+      "src/index.ts  fake-rule  fake-rule function:existing  [baselined]\n",
+    );
+  });
+
+  it("keeps baseline artifacts in the requested directory", async () => {
+    const root = consumer();
+    const command = deps(root, [fakeAdapter({ id: "ts-alpha" })]);
+    expect(await runCli(["node", "code-quality", "check", "--initialize"], command)).toBe(0);
+    expect(await runCli(
+      ["node", "code-quality", "baseline", "--artifacts", "evidence"], command,
+    )).toBe(0);
+    expect(existsSync(join(root, "evidence", "ts-alpha", "stdout.log"))).toBe(true);
+  });
+
+});
+
+describe("CLI artifact and annotation options", () => {
+  it("keeps artifacts only when --artifacts is provided", async () => {
+    const root = consumer();
+    expect(await runCli(["node", "code-quality", "check", "--initialize"], deps(root))).toBe(0);
+    expect(existsSync(join(root, "artifacts"))).toBe(false);
+
+    const evidence = "evidence";
+    expect(await runCli(
+      ["node", "code-quality", "check", "--artifacts", evidence], deps(root),
+    )).toBe(0);
+    expect(existsSync(join(root, evidence, "ts-alpha/stdout.log"))).toBe(true);
+  });
+
+  it("prints GitHub error annotations for regressions", async () => {
+    const root = consumer();
+    const initial = deps(root, [fakeAdapter({ id: "ts-beta" })]);
+    expect(await runCli(["node", "code-quality", "check", "--initialize"], initial)).toBe(0);
+    outputs = [];
+    const failing = deps(root, [fakeAdapter({
+      id: "ts-beta",
+      findings: { regression: 2 },
+      details: { regression: {
+        file: "src/index.ts", line: 7, column: 3, rule: "fake-rule",
+        anchor: "function:bad", value: 2, message: "bad function",
+      } },
+    })]);
+    failing.env = { GITHUB_ACTIONS: "true" };
+    expect(await runCli(["node", "code-quality", "check"], failing)).toBe(1);
+    expect(outputs.join("")).toContain(
+      "::error file=src/index.ts,line=7,col=3,title=ts-beta fake-rule::bad function\n",
+    );
+  });
+
+  it("sanitizes adapter errors and runtime notices", async () => {
+    const root = consumer();
+    const unsafe = fakeAdapter({ id: "ts-unsafe" });
+    unsafe.parse = async (ctx) => {
+      ctx.notice("src/a.ts\n::warning::forged");
+      throw new Error("failed\n::stop-commands::x");
+    };
+    expect(await runCli(
+      ["node", "code-quality", "check", "--initialize"], deps(root, [unsafe]),
+    )).toBe(1);
+    expect(outputs).toContain("Notice: src/a.ts ::warning::forged\n");
+    expect(errors).toContain("ts-unsafe: failed ::stop-commands::x\n");
+  });
+});
+
+describe("CLI auxiliary failures", () => {
   it("returns one for unknown commands and unknown configuration keys", async () => {
     const root = consumer();
     const command = deps(root);

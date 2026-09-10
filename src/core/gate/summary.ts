@@ -1,6 +1,6 @@
-import { appendFileSync } from "node:fs";
+import { appendFileSync, mkdirSync } from "node:fs";
+import { dirname } from "node:path";
 
-import { artifactDir, writeArtifact } from "../runner/artifacts.ts";
 import type { GateOutcome } from "./types.ts";
 
 export function summaryMarkdown(input: {
@@ -15,12 +15,10 @@ export function summaryMarkdown(input: {
 }
 
 export function writeSummary(
-  root: string,
   outcome: GateOutcome,
   isDuplication: boolean,
   env: NodeJS.ProcessEnv = process.env,
 ): void {
-  const directory = artifactDir(root, outcome.id);
   const markdown = summaryMarkdown({
     id: outcome.id,
     isDuplication,
@@ -28,12 +26,9 @@ export function writeSummary(
     regressions: outcome.regressions.length,
     stale: outcome.stale.length,
   });
-  writeArtifact(
-    directory,
-    "comparison.json",
-    `${JSON.stringify({ count: outcome.count, regressions: outcome.regressions, stale: outcome.stale }, null, 2)}\n`,
-  );
-  writeArtifact(directory, "summary.md", markdown);
   const stepSummary = env.GITHUB_STEP_SUMMARY;
-  if (stepSummary) appendFileSync(stepSummary, markdown, "utf8");
+  if (stepSummary) {
+    mkdirSync(dirname(stepSummary), { recursive: true });
+    appendFileSync(stepSummary, markdown, "utf8");
+  }
 }

@@ -8,7 +8,7 @@
           "line": 86,
           "position": 1545
         },
-        "name": "complexity.ts",
+        "name": "/work/src/complexity.ts",
         "start": 27,
         "startLoc": {
           "column": 7,
@@ -28,7 +28,7 @@
           "line": 87,
           "position": 1560
         },
-        "name": "complexity.ts",
+        "name": "/work/src/complexity.ts",
         "start": 28,
         "startLoc": {
           "column": 13,
@@ -46,7 +46,7 @@
           "line": 14,
           "position": 326
         },
-        "name": "dup-a.ts",
+        "name": "/work/src/dup-a.ts",
         "start": 1,
         "startLoc": {
           "column": 24,
@@ -66,7 +66,7 @@
           "line": 14,
           "position": 326
         },
-        "name": "dup-b.ts",
+        "name": "/work/src/dup-b.ts",
         "start": 1,
         "startLoc": {
           "column": 24,
@@ -78,7 +78,7 @@
     }
   ],
   "statistics": {
-    "detectionDate": "2026-09-10T08:57:19.512Z",
+    "detectionDate": "2026-09-10T17:08:30.907Z",
     "formats": {
       "typescript": {
         "clones": 2,

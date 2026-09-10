@@ -65,7 +65,7 @@ describe("reusable quality workflow", () => {
     expect(container.options).toBe("--user root");
   });
 
-  it("orders checkout, setup, validation, check, and artifact upload", () => {
+  it("orders checkout, setup, validation, and check", () => {
     const steps = workflow().jobs.quality.steps;
 
     expect(steps.map((step) => step.name ?? step.uses)).toEqual([
@@ -73,8 +73,8 @@ describe("reusable quality workflow", () => {
       "Setup",
       "Validate checks",
       "Check",
-      "Upload artifacts",
     ]);
+    expect(steps.some((step) => step.uses?.startsWith("actions/upload-artifact@"))).toBe(false);
     expect(steps[0]?.with).toMatchObject({ "fetch-depth": 0 });
     expect(steps[1]?.if).toBe("inputs.setup != ''");
     expect(steps[1]?.env).toEqual({ CODE_QUALITY_SETUP: "${{ inputs.setup }}" });
@@ -94,14 +94,4 @@ describe("reusable quality workflow", () => {
     expect(runs).not.toMatch(/--update|--initialize/u);
   });
 
-  it("uploads quality artifacts for 14 days even after a failure", () => {
-    const upload = workflow().jobs.quality.steps[4];
-
-    expect(upload?.if).toBe("always()");
-    expect(upload?.uses).toMatch(/^actions\/upload-artifact@[0-9a-f]{40}$/u);
-    expect(upload?.with).toMatchObject({
-      "retention-days": 14,
-      path: "${{ inputs.working-directory }}/artifacts/quality/",
-    });
-  });
 });

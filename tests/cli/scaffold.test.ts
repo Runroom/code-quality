@@ -62,9 +62,18 @@ describe("consumer scaffold", () => {
     expect(workflow.jobs.quality.uses).toBe(
       "Runroom/code-quality/.github/workflows/quality.yml@v1",
     );
-    const target = MAKEFILE_SNIPPET.split("\n");
-    expect(target[1]?.startsWith("\t")).toBe(true);
-    expect(target[4]?.startsWith("\t")).toBe(true);
+    const lines = MAKEFILE_SNIPPET.split("\n");
+    const targets = ["quality", "quality-all", "quality-baseline", "quality-report", "quality-doctor"];
+    expect(lines).toContain("CODE_QUALITY_IMAGE ?= ghcr.io/runroom/code-quality:v1");
+    expect(lines).toContain(
+      "# Must be a single image reference; it is interpolated into docker run unquoted.",
+    );
+    expect(lines).toContain(".PHONY: quality quality-all quality-baseline quality-report quality-doctor");
+    for (const target of targets) expect(lines).toContain(`${target}:`);
+    for (const [index, line] of lines.entries()) {
+      if (!targets.some((target) => line === `${target}:`)) continue;
+      expect(lines[index + 1]?.startsWith("\t")).toBe(true);
+    }
   });
 
   it("does not overwrite consumer files and logs an existing Makefile snippet", () => {
@@ -81,6 +90,7 @@ describe("consumer scaffold", () => {
 
     expect(readFileSync(join(root, ".code-quality.yml"), "utf8")).toBe(existingConfig);
     expect(readFileSync(join(root, "Makefile"), "utf8")).toBe(existingMakefile);
+    expect(logs).toContain("Kept existing Makefile; add these targets to it if you want make quality:");
     expect(logs).toContain(MAKEFILE_SNIPPET);
     expect(existsSync(join(root, "quality"))).toBe(true);
     expect(existsSync(join(root, ".github/workflows/quality.yml"))).toBe(true);
@@ -97,9 +107,9 @@ describe("consumer .gitignore scaffold", () => {
     scaffold(root, config(), (value) => logs.push(value));
 
     expect(readFileSync(join(root, ".gitignore"), "utf8")).toBe(
-      "# code-quality\nartifacts/quality/\n.code-quality-tmp/\n",
+      "# code-quality\nartifacts/quality/\n",
     );
-    expect(logs).toContain("Updated .gitignore (artifacts/quality/, .code-quality-tmp/)");
+    expect(logs).toContain("Updated .gitignore (artifacts/quality/)");
   });
 
   it("appends missing .gitignore entries without changing existing content", () => {
@@ -112,9 +122,9 @@ describe("consumer .gitignore scaffold", () => {
     scaffold(root, config(), (value) => logs.push(value));
 
     expect(readFileSync(join(root, ".gitignore"), "utf8")).toBe(
-      `${existing}# code-quality\nartifacts/quality/\n.code-quality-tmp/\n`,
+      `${existing}# code-quality\nartifacts/quality/\n`,
     );
-    expect(logs).toContain("Updated .gitignore (artifacts/quality/, .code-quality-tmp/)");
+    expect(logs).toContain("Updated .gitignore (artifacts/quality/)");
   });
 
   it("keeps an existing .gitignore byte-identical when entries are present", () => {

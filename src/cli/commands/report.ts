@@ -1,6 +1,17 @@
+import { resolve } from "node:path";
+
 import { reportCommand as runReports } from "../../report/advisory.ts";
 import type { CliDeps } from "../deps.ts";
 
-export function reportCommand(deps: CliDeps): Promise<number> {
-  return runReports(deps);
+interface ReportOptions {
+  output?: string | undefined;
+}
+
+const DEFAULT_OUTPUT = "artifacts/quality";
+
+export function reportCommand(deps: CliDeps, options: ReportOptions = {}): Promise<number> {
+  return runReports({
+    ...deps,
+    output: resolve(deps.cwd, options.output ?? DEFAULT_OUTPUT),
+  });
 }

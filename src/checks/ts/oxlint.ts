@@ -3,15 +3,19 @@ import { join } from "node:path";
 import { z } from "zod";
 
 import { addAnchoredFinding, excludeGlobs, extractMeasurement, fail, FindingsBuilder, parseJsonOutput, POLICY, relativize } from "../shared/kit.ts";
-import type { CheckAdapter, CheckContext, Findings } from "../shared/kit.ts";
+import type { CheckAdapter, CheckContext, ParsedFindings } from "../shared/kit.ts";
 import type { ResolvedConfig } from "../../core/config/types.ts";
 
-const METRICS: Record<string, RegExp> = {
-  "eslint(complexity)": /complexity of (\d+)\./u,
-  "eslint(max-params)": /too many parameters \((\d+)\)/u,
-  "eslint(max-lines-per-function)": /too many lines \((\d+)\)/u,
-  "eslint(max-depth)": /nested too deeply \((\d+)\)/u,
-  "eslint(max-nested-callbacks)": /(?:callbacks|deeply) \((\d+)\)/u,
+const METRICS: Record<string, { pattern: RegExp; threshold: number }> = {
+  "eslint(complexity)": { pattern: /complexity of (\d+)\./u, threshold: POLICY.complexity },
+  "eslint(max-lines-per-function)": {
+    pattern: /too many lines \((\d+)\)/u, threshold: POLICY.maxLinesPerFunction,
+  },
+  "eslint(max-params)": { pattern: /too many parameters \((\d+)\)/u, threshold: POLICY.maxParams },
+  "eslint(max-depth)": { pattern: /nested too deeply \((\d+)\)/u, threshold: POLICY.maxDepth },
+  "eslint(max-nested-callbacks)": {
+    pattern: /(?:callbacks|deeply) \((\d+)\)/u, threshold: POLICY.maxNestedCallbacks,
+  },
 };
 const SYMBOL = /(?:Function|Method) ['"]([^'"]+)['"]/u;
 
@@ -49,13 +53,13 @@ export function oxlintConfig(_config: ResolvedConfig): string {
   }, null, 2);
 }
 
-export async function oxlintFindings(ctx: CheckContext, input: unknown): Promise<Findings> {
+export async function oxlintFindings(ctx: CheckContext, input: unknown): Promise<ParsedFindings> {
   const report = reportSchema.parse(input);
   if (report.number_of_files === 0) return fail("oxlint scanned no files");
   const findings = new FindingsBuilder();
   for (const diagnostic of report.diagnostics) {
-    const pattern = METRICS[diagnostic.code];
-    if (!pattern || diagnostic.severity !== "warning") {
+    const metric = METRICS[diagnostic.code];
+    if (!metric || diagnostic.severity !== "warning") {
       return fail(
         `Unbaselined diagnostic: ${diagnostic.filename} ${diagnostic.code}: ${diagnostic.message}`,
       );
@@ -64,9 +68,10 @@ export async function oxlintFindings(ctx: CheckContext, input: unknown): Promise
     const blockMode = diagnostic.code === "eslint(max-depth)";
     await addAnchoredFinding(ctx, findings, {
       file, rule: diagnostic.code,
-      value: extractMeasurement(pattern, diagnostic.message, diagnostic.code),
+      value: extractMeasurement(metric.pattern, diagnostic.message, diagnostic.code),
       offset: diagnostic.labels[0]!.span.offset, blockMode,
       symbol: SYMBOL.exec(diagnostic.message)?.[1],
+      message: diagnostic.message, threshold: metric.threshold,
     });
   }
   return findings.build();

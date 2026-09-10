@@ -82,6 +82,19 @@ describe("repository CI image job", () => {
     const steps = workflow().jobs.image.steps;
     const runs = steps.map((step) => step.run ?? "").join("\n");
 
+    expect(steps.map((step) => step.name ?? step.uses)).toEqual([
+      expect.stringMatching(/^actions\/checkout@[0-9a-f]{40}$/u),
+      expect.stringMatching(/^pnpm\/action-setup@[0-9a-f]{40}$/u),
+      expect.stringMatching(/^actions\/setup-node@[0-9a-f]{40}$/u),
+      undefined,
+      expect.stringMatching(/^docker\/setup-buildx-action@[0-9a-f]{40}$/u),
+      expect.stringMatching(/^docker\/build-push-action@[0-9a-f]{40}$/u),
+      undefined,
+      undefined,
+      "Fixture integration",
+      "Dogfood",
+      "Publish dogfood summary",
+    ]);
     expect(runs).toContain("docker run --rm code-quality:ci versions");
     expect(runs).toContain("docker run --rm code-quality:ci doctor");
     expect(runs).toContain("CODE_QUALITY_IMAGE=code-quality:ci node scripts/integration.ts");
@@ -104,11 +117,4 @@ describe("repository CI image job", () => {
     );
   });
 
-  it("retains dogfood artifacts for 14 days", () => {
-    const upload = workflow().jobs.image.steps.at(-1);
-
-    expect(upload?.if).toBe("always()");
-    expect(upload?.uses).toMatch(/^actions\/upload-artifact@[0-9a-f]{40}$/u);
-    expect(upload?.with).toMatchObject({ "retention-days": 14, path: "artifacts/" });
-  });
 });

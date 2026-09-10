@@ -4,6 +4,8 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { BUILTIN_EXCLUSIONS, TEST_EXCLUSIONS } from "../../../src/core/config/exclusions.ts";
+import { byteOffsetToLineColumn } from "../../../src/core/anchor/offsets.ts";
+import { POLICY } from "../../../src/core/config/policy.ts";
 import { oxlintAdapter, oxlintConfig, oxlintFindings } from "../../../src/checks/ts/oxlint.ts";
 import { checkContext } from "../../helpers/check-context.ts";
 
@@ -97,7 +99,7 @@ describe("oxlint synthetic parser", () => {
       checkContext("/r", "ts", { "src/a.ts": shifted }),
       report("eslint(complexity)", "complexity of 11.", Buffer.byteLength("// café 🎨\nexport const named = ")),
     );
-    expect(Object.keys(shiftedResult)).toEqual(Object.keys(firstResult));
+    expect(Object.keys(shiftedResult.findings)).toEqual(Object.keys(firstResult.findings));
   });
 
   it("preserves named function identity across unicode line shifts", async () => {
@@ -107,7 +109,7 @@ describe("oxlint synthetic parser", () => {
       checkContext("/r", "ts", { "src/a.ts": shifted }),
       report("eslint(complexity)", "complexity of 11.", Buffer.byteLength("// café 🎨\nexport function ")),
     );
-    expect(Object.keys(moved)).toEqual(Object.keys(original));
+    expect(Object.keys(moved.findings)).toEqual(Object.keys(original.findings));
   });
 });
 
@@ -118,7 +120,7 @@ describe("oxlint structural recovery", () => {
       checkContext("/r", "ts", { "src/a.ts": typed }),
       report("eslint(max-params)", "Function 'search' has too many parameters (5).", 28),
     );
-    expect(result).toEqual({ "src/a.ts | eslint(max-params) | /type:Repo/method:search": 5 });
+    expect(result.findings).toEqual({ "src/a.ts | eslint(max-params) | /type:Repo/method:search": 5 });
   });
 
   it("falls back to a symbol when the diagnostic is in a parse-error region", async () => {
@@ -128,7 +130,7 @@ describe("oxlint structural recovery", () => {
       fallback,
       report("eslint(max-params)", "Function 'busy' has too many parameters (5).", 14),
     );
-    expect(result).toEqual({ "src/a.ts | eslint(max-params) | ~busy": 5 });
+    expect(result.findings).toEqual({ "src/a.ts | eslint(max-params) | ~busy": 5 });
     expect(fallback.config.notices).toEqual([
       "anchors for src/a.ts fall back to symbol/line keys (grammar could not parse the file)",
     ]);
@@ -141,16 +143,21 @@ describe("oxlint structural recovery", () => {
       fallback,
       report("eslint(max-depth)", "Blocks are nested too deeply (4).", 54),
     );
-    expect(result).toEqual({ "src/a.ts | eslint(max-depth) | ~L2": 4 });
+    expect(result.findings).toEqual({ "src/a.ts | eslint(max-depth) | ~L2": 4 });
   });
 });
 
 describe("oxlint captured fixture", () => {
   it("contains findings for exactly all five configured rules", async () => {
     const reportInput = JSON.parse(readFileSync(nativeFile, "utf8")) as {
-      diagnostics: Array<{ code: string; message: string }>;
+      diagnostics: Array<{
+        code: string;
+        message: string;
+        filename: string;
+        labels: Array<{ span: { offset: number } }>;
+      }>;
     };
-    const parsed = await oxlintFindings(checkContext(root), reportInput);
+    const { findings: parsed, details } = await oxlintFindings(checkContext(root), reportInput);
     expect(Object.keys(parsed).some((key) => key.includes("ignored.test.ts"))).toBe(false);
     const rules = new Set(Object.keys(parsed).map((key) => key.split(" | ")[1]));
     expect(rules).toEqual(new Set([
@@ -162,5 +169,16 @@ describe("oxlint captured fixture", () => {
       const diagnostics = reportInput.diagnostics.filter((entry) => entry.code === code);
       expect(diagnostics.some((entry) => entry.message.includes(String(value)))).toBe(true);
     }
+    const key = "src/complexity.ts | eslint(complexity) | /function:busy";
+    const diagnostic = reportInput.diagnostics.find((entry) => entry.code === "eslint(complexity)"
+      && entry.filename === "src/complexity.ts")!;
+    const source = readFileSync(resolve(root, diagnostic.filename), "utf8");
+    const location = byteOffsetToLineColumn(source, diagnostic.labels[0]!.span.offset);
+    expect(details[key]).toMatchObject({
+      line: location.line,
+      column: location.column,
+      message: diagnostic.message,
+      threshold: POLICY.complexity,
+    });
   });
 });

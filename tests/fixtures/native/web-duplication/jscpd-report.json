@@ -8,7 +8,7 @@
           "line": 12,
           "position": 300
         },
-        "name": "other.scss",
+        "name": "/work/assets/other.scss",
         "start": 1,
         "startLoc": {
           "column": 14,
@@ -28,7 +28,7 @@
           "line": 12,
           "position": 300
         },
-        "name": "styles.scss",
+        "name": "/work/assets/styles.scss",
         "start": 1,
         "startLoc": {
           "column": 14,
@@ -46,7 +46,7 @@
           "line": 18,
           "position": 714
         },
-        "name": "page-a.twig",
+        "name": "/work/templates/page-a.twig",
         "start": 2,
         "startLoc": {
           "column": 17,
@@ -66,7 +66,7 @@
           "line": 18,
           "position": 713
         },
-        "name": "page-b.twig",
+        "name": "/work/templates/page-b.twig",
         "start": 2,
         "startLoc": {
           "column": 14,
@@ -78,7 +78,7 @@
     }
   ],
   "statistics": {
-    "detectionDate": "2026-09-10T10:16:31.084Z",
+    "detectionDate": "2026-09-10T17:08:32.212Z",
     "formats": {
       "scss": {
         "clones": 1,

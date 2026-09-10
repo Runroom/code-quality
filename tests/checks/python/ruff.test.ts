@@ -41,9 +41,14 @@ describe("ruff captured fixture", () => {
   it("finds the captured complexity and parameter metrics", async () => {
     const input = JSON.parse(readFileSync(nativeFile, "utf8")) as unknown;
     const parsed = await ruffFindings(checkContext(root, "python"), input);
-    expect(parsed).toEqual({
+    expect(parsed.findings).toEqual({
       "src/demo_app/complex.py | C901 | /function:busy": 12,
       "src/demo_app/complex.py | PLR0913 | /function:busy": 5,
     });
+    const detail = parsed.details["src/demo_app/complex.py | C901 | /function:busy"];
+    expect(detail).toMatchObject({
+        line: 1, column: 5, message: "`busy` is too complex (12 > 10)",
+      });
+    expect(detail).not.toHaveProperty("threshold");
   });
 });
