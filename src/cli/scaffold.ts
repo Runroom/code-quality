@@ -52,6 +52,7 @@ function writeWorkflow(root: string): void {
 
 function writeMakefile(root: string, log: (value: string) => void): void {
   if (existsSync(join(root, "Makefile"))) {
+    log("Kept existing Makefile; add these targets to it if you want make quality:");
     log(MAKEFILE_SNIPPET);
     return;
   }
