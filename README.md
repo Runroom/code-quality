@@ -16,7 +16,15 @@ From the root of the repository, run:
 docker run --rm -v "$PWD:/work" ghcr.io/runroom/code-quality:v1 init
 ```
 
-Review the generated `.code-quality.yml`, source paths, `.github/workflows/quality.yml`, and `Makefile`. Commit the `quality/` baselines along with the reviewed configuration. Existing findings are recorded once; later checks fail on new or worsened findings and on stale baseline entries.
+Review the generated `.code-quality.yml`, source paths, `.github/workflows/quality.yml`, and `Makefile`. `init` writes or updates:
+
+- `.code-quality.yml`;
+- `quality/<adapter>-baseline.json`;
+- `.github/workflows/quality.yml`;
+- `Makefile` if absent; and
+- `.gitignore` entries for `artifacts/quality/` and `.code-quality-tmp/`.
+
+Commit the `quality/` baselines along with the reviewed configuration. `artifacts/quality/` is per-run evidence and is never committed. Existing findings are recorded once; later checks fail on new or worsened findings and on stale baseline entries.
 
 `init` uses conventional source roots: `src/` and `assets/` for TS/JS, `src/`, `lib/`, and `app/` for PHP, `src/` for Python, and `templates/` and `assets/` for web sources. If a detected manifest has no source files in its default roots, that language is omitted from the generated configuration and the CLI prints a `Notice: ...` line explaining how to add `paths.<language>`; add that configuration and rerun `init` or `check` to enable the language’s checks. Explicitly configured languages and paths still fail when they contain no source files.
 

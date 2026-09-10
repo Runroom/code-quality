@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { z } from "zod";
@@ -37,10 +37,31 @@ const TEST_ENTRIES = [
   "**/__tests__/**/*.{ts,tsx,js,mjs,cjs}",
   "**/*.{test,spec}.{ts,tsx,js,mjs,cjs}",
 ];
+const DEPENDENCY_FIELDS = [
+  "dependencies",
+  "devDependencies",
+  "peerDependencies",
+  "optionalDependencies",
+] as const;
+
+function declaresDependencies(packageFile: string): boolean {
+  const parsed: unknown = JSON.parse(readFileSync(packageFile, "utf8"));
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return false;
+  const packageJson = parsed as Record<string, unknown>;
+  return DEPENDENCY_FIELDS.some((field) => {
+    const entries = packageJson[field];
+    return typeof entries === "object"
+      && entries !== null
+      && !Array.isArray(entries)
+      && Object.keys(entries).length > 0;
+  });
+}
 
 function requireNodeModules(config: ResolvedConfig): Applicability {
-  if (!existsSync(join(config.root, "package.json"))
-    || existsSync(join(config.root, "node_modules"))) {
+  const packageFile = join(config.root, "package.json");
+  if (!existsSync(packageFile)
+    || existsSync(join(config.root, "node_modules"))
+    || !declaresDependencies(packageFile)) {
     return { kind: "run" };
   }
   return {

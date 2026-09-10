@@ -19,9 +19,28 @@ function generatedConfig(paths = ["src"]): Record<string, unknown> {
 describe("knip synthetic parser", () => {
   const ctx = checkContext("/r", "ts", { "src/exports.ts": "export const orphan = 1;\n" });
 
-  it("explains the missing node_modules prerequisite", () => {
+  it.each([
+    ["missing dependency fields", { name: "bare", private: true }],
+    [
+      "empty dependency fields",
+      {
+        name: "bare",
+        private: true,
+        dependencies: {},
+        devDependencies: {},
+        peerDependencies: {},
+        optionalDependencies: {},
+      },
+    ],
+  ])("does not require node_modules for %s", (_description, manifest) => {
     const bare = mkdtempSync(join(tmpdir(), "knip-bare-"));
-    writeFileSync(join(bare, "package.json"), '{"name":"bare","private":true}\n');
+    writeFileSync(join(bare, "package.json"), `${JSON.stringify(manifest)}\n`);
+    expect(knipAdapter.applicability(checkContext(bare).config)).toEqual({ kind: "run" });
+  });
+
+  it("explains the missing node_modules prerequisite when dependencies are declared", () => {
+    const bare = mkdtempSync(join(tmpdir(), "knip-bare-"));
+    writeFileSync(join(bare, "package.json"), '{"name":"bare","private":true,"dependencies":{"left-pad":"1.3.0"}}\n');
     expect(knipAdapter.applicability(checkContext(bare).config)).toEqual({
       kind: "error",
       message: "ts-unused (knip) needs installed dependencies: run your package manager install "

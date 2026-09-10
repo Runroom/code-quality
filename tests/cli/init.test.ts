@@ -92,6 +92,7 @@ describe("init command", () => {
     expect(existsSync(join(root, "quality/ts-alpha-baseline.json"))).toBe(true);
     expect(existsSync(join(root, ".github/workflows/quality.yml"))).toBe(true);
     expect(existsSync(join(root, "Makefile"))).toBe(true);
+    expect(output.join("")).toContain("Updated .gitignore (artifacts/quality/, .code-quality-tmp/)\n");
 
     expect(await runCli(
       ["node", "code-quality", "init"],
@@ -100,7 +101,7 @@ describe("init command", () => {
     expect(readFileSync(join(root, ".code-quality.yml"), "utf8")).toBe(config);
     expect(readFileSync(join(root, "quality/ts-alpha-baseline.json"), "utf8")).toBe(baseline);
     expect(existsSync(join(root, "quality/ts-beta-baseline.json"))).toBe(true);
-    expect(output.join(" ")).toContain("Kept existing: quality/ts-alpha-baseline.json");
+    expect(output.join("")).toContain("Kept existing: quality/ts-alpha-baseline.json\n");
     expect(errors.join(" ")).not.toContain("already exists");
   });
 
