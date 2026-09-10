@@ -5,6 +5,8 @@ coverage/
 .code-quality-tmp/
 fixtures/*/artifacts/
 fixtures/*/.code-quality-tmp/
+fixtures/ts-project/node_modules/
+fixtures/ts-project/package-lock.json
 fixtures/php-project/vendor/
 fixtures/python-project/.venv/
 fixtures/python-project/.import_linter_cache/

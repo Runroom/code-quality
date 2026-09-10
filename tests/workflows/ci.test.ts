@@ -85,8 +85,8 @@ describe("repository CI image job", () => {
     expect(runs).toContain("docker run --rm code-quality:ci versions");
     expect(runs).toContain("docker run --rm code-quality:ci doctor");
     expect(runs).toContain("CODE_QUALITY_IMAGE=code-quality:ci node scripts/integration.ts");
-    expect(runs).toContain("fixtures/php-project:/work");
-    expect(runs).toContain("--entrypoint composer code-quality:ci install --no-interaction");
+    expect(steps.find((step) => step.name === "Install PHP fixture dependencies")).toBeUndefined();
+    expect(runs).not.toContain("--entrypoint composer code-quality:ci install --no-interaction");
     expect(runs).toContain('--user "$(id -u):$(id -g)"');
     expect(runs).toContain("-e GITHUB_ACTIONS=true");
     expect(runs).toContain("code-quality:ci check");
@@ -97,8 +97,10 @@ describe("repository CI image job", () => {
     expect(steps[dogfoodIndex]?.run).toBe(
       'docker run --rm -v "$PWD:/work" --user "$(id -u):$(id -g)" -e GITHUB_ACTIONS=true -e GITHUB_STEP_SUMMARY=/work/artifacts/step-summary.md code-quality:ci check',
     );
-    expect(steps.find((step) => step.name === "Publish dogfood summary")?.run).toBe(
-      'cat artifacts/step-summary.md >> "$GITHUB_STEP_SUMMARY"',
+    const summary = steps.find((step) => step.name === "Publish dogfood summary");
+    expect(summary?.if).toBe("always()");
+    expect(summary?.run).toBe(
+      "[ -f artifacts/step-summary.md ] && cat artifacts/step-summary.md >> \"$GITHUB_STEP_SUMMARY\" || echo 'no dogfood summary'",
     );
   });
 

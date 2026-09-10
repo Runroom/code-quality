@@ -1,5 +1,6 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
@@ -19,7 +20,9 @@ describe("knip synthetic parser", () => {
   const ctx = checkContext("/r", "ts", { "src/exports.ts": "export const orphan = 1;\n" });
 
   it("explains the missing node_modules prerequisite", () => {
-    expect(knipAdapter.applicability(checkContext(root).config)).toEqual({
+    const bare = mkdtempSync(join(tmpdir(), "knip-bare-"));
+    writeFileSync(join(bare, "package.json"), '{"name":"bare","private":true}\n');
+    expect(knipAdapter.applicability(checkContext(bare).config)).toEqual({
       kind: "error",
       message: "ts-unused (knip) needs installed dependencies: run your package manager install "
         + "(workflow input `setup: pnpm install --frozen-lockfile` or npm ci) and retry.",

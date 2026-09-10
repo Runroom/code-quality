@@ -154,4 +154,4 @@ pnpm integration
 pnpm capture <adapter-id> <fixture-directory>
 ```
 
-`pnpm verify` runs typecheck, lint, tests, and the bundle build. `pnpm integration` expects a locally built image and exercises the three fixture repositories plus deliberate mutations. Native fixture capture is performed against a pinned image tool and is used by adapter parser tests.
+`pnpm verify` runs typecheck, lint, tests, and the bundle build. `pnpm integration` expects a locally built image and exercises the three fixture repositories plus deliberate mutations; on the first run, it installs fixture dependencies through the image. Native fixture capture is performed against a pinned image tool and is used by adapter parser tests.

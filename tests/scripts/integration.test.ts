@@ -17,6 +17,7 @@ import {
   formatResultRow,
   formatResultTable,
   dockerArgs,
+  plannedDependencyInstalls,
   shouldCopyFixturePath,
 } from "../../scripts/integration.ts";
 
@@ -29,6 +30,29 @@ it("runs mounted Docker fixtures as the host user when IDs are available", () =>
     expect(args).toContain("--user");
     expect(args).toContain(`${uid}:${gid}`);
   }
+});
+
+it("plans installs only for fixture dependencies that are missing", () => {
+  expect(plannedDependencyInstalls({ tsNodeModules: false, phpVendor: false })).toEqual([
+    {
+      fixture: "ts-project",
+      entrypoint: "npm",
+      command: ["install", "--no-audit", "--no-fund"],
+    },
+    {
+      fixture: "php-project",
+      entrypoint: "composer",
+      command: ["install", "--no-interaction"],
+    },
+  ]);
+  expect(plannedDependencyInstalls({ tsNodeModules: true, phpVendor: false })).toEqual([
+    {
+      fixture: "php-project",
+      entrypoint: "composer",
+      command: ["install", "--no-interaction"],
+    },
+  ]);
+  expect(plannedDependencyInstalls({ tsNodeModules: true, phpVendor: true })).toEqual([]);
 });
 
 function withTempRoot(action: (root: string) => void): void {

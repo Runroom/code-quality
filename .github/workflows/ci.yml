@@ -55,15 +55,13 @@ jobs:
           cache-to: type=gha,mode=max
       - run: docker run --rm code-quality:ci versions
       - run: docker run --rm code-quality:ci doctor
-      - name: Install PHP fixture dependencies
-        run: docker run --rm -v "$PWD/fixtures/php-project:/work" -w /work --user "$(id -u):$(id -g)" --entrypoint composer code-quality:ci install --no-interaction
       - name: Fixture integration
         run: CODE_QUALITY_IMAGE=code-quality:ci node scripts/integration.ts
       - name: Dogfood
         run: docker run --rm -v "$PWD:/work" --user "$(id -u):$(id -g)" -e GITHUB_ACTIONS=true -e GITHUB_STEP_SUMMARY=/work/artifacts/step-summary.md code-quality:ci check
       - name: Publish dogfood summary
         if: always()
-        run: cat artifacts/step-summary.md >> "$GITHUB_STEP_SUMMARY"
+        run: "[ -f artifacts/step-summary.md ] && cat artifacts/step-summary.md >> \"$GITHUB_STEP_SUMMARY\" || echo 'no dogfood summary'"
       - if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:

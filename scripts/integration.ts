@@ -4,6 +4,7 @@ import {
   chmodSync,
   copyFileSync,
   cpSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
@@ -76,6 +77,17 @@ interface DockerResult {
   exitCode: number;
 }
 
+interface FixtureDependencyState {
+  tsNodeModules: boolean;
+  phpVendor: boolean;
+}
+
+interface DependencyInstallPlan {
+  fixture: "ts-project" | "php-project";
+  entrypoint: "npm" | "composer";
+  command: readonly string[];
+}
+
 const FIXTURES = ["ts-project", "php-project", "python-project"] as const;
 const MAX_BUFFER = 256 * 1024 * 1024;
 
@@ -94,13 +106,17 @@ function copyFilter(sourceRoot: string, sourcePath: string): boolean {
   return shouldCopyFixturePath(relative(sourceRoot, sourcePath));
 }
 
-export function copyFixture(sourceRoot: string, destinationRoot: string, copyVendor = false): void {
+export function copyFixture(
+  sourceRoot: string,
+  destinationRoot: string,
+  dereferenceDependencies = false,
+): void {
   mkdirSync(destinationRoot, { recursive: true });
   for (const entry of readdirSync(sourceRoot)) {
     if (!shouldCopyFixturePath(entry)) continue;
     cpSync(join(sourceRoot, entry), join(destinationRoot, entry), {
       recursive: true,
-      dereference: copyVendor,
+      dereference: dereferenceDependencies,
       filter: (sourcePath) => copyFilter(sourceRoot, sourcePath),
     });
   }
@@ -142,17 +158,53 @@ function hostUserArgs(): string[] {
   return uid === undefined || gid === undefined ? [] : ["--user", `${uid}:${gid}`];
 }
 
-export function dockerArgs(image: string, command: readonly string[], mountRoot?: string): string[] {
+export function dockerArgs(
+  image: string,
+  command: readonly string[],
+  mountRoot?: string,
+  entrypoint?: "npm" | "composer",
+): string[] {
   const mountArgs = mountRoot === undefined
     ? []
     : ["-v", `${mountRoot}:/work`, "-w", "/work"];
+  // Installers run as the host user, who has no home inside the image.
+  const entrypointArgs = entrypoint === undefined
+    ? []
+    : ["-e", "HOME=/tmp", "-e", "COMPOSER_HOME=/tmp/composer", "--entrypoint", entrypoint];
   return [
-    "run", "--rm", "-e", "GITHUB_ACTIONS=true", ...hostUserArgs(), ...mountArgs, image, ...command,
+    "run", "--rm", "-e", "GITHUB_ACTIONS=true", ...hostUserArgs(), ...mountArgs,
+    ...entrypointArgs, image, ...command,
   ];
 }
 
-function runDocker(image: string, command: readonly string[], mountRoot?: string): DockerResult {
-  const result = spawnSync("docker", dockerArgs(image, command, mountRoot), {
+export function plannedDependencyInstalls(
+  state: FixtureDependencyState,
+): DependencyInstallPlan[] {
+  const plans: DependencyInstallPlan[] = [];
+  if (!state.tsNodeModules) {
+    plans.push({
+      fixture: "ts-project",
+      entrypoint: "npm",
+      command: ["install", "--no-audit", "--no-fund"],
+    });
+  }
+  if (!state.phpVendor) {
+    plans.push({
+      fixture: "php-project",
+      entrypoint: "composer",
+      command: ["install", "--no-interaction"],
+    });
+  }
+  return plans;
+}
+
+function runDocker(
+  image: string,
+  command: readonly string[],
+  mountRoot?: string,
+  entrypoint?: "npm" | "composer",
+): DockerResult {
+  const result = spawnSync("docker", dockerArgs(image, command, mountRoot, entrypoint), {
     encoding: "utf8",
     maxBuffer: MAX_BUFFER,
   });
@@ -209,11 +261,25 @@ function fixtureCheckRow(repositoryRoot: string, image: string, fixture: string)
   return resultRow(`${fixture} check`, runDocker(image, ["check"], root), 0);
 }
 
+function installMissingFixtureDependencies(repositoryRoot: string, image: string): void {
+  const state: FixtureDependencyState = {
+    tsNodeModules: existsSync(join(fixtureRoot(repositoryRoot, "ts-project"), "node_modules")),
+    phpVendor: existsSync(join(fixtureRoot(repositoryRoot, "php-project"), "vendor")),
+  };
+  for (const plan of plannedDependencyInstalls(state)) {
+    const root = fixtureRoot(repositoryRoot, plan.fixture);
+    const result = runDocker(image, plan.command, root, plan.entrypoint);
+    if (result.exitCode !== 0) {
+      throw new Error(`${plan.fixture} dependency install failed: ${result.stderr}`);
+    }
+  }
+}
+
 function temporaryFixture(repositoryRoot: string, mutation: Mutation): string {
   const sourceRoot = fixtureRoot(repositoryRoot, mutation.fixture);
   const destinationRoot = mkdtempSync(join(tmpdir(), "code-quality-integration-"));
   chmodSync(destinationRoot, 0o755);
-  copyFixture(sourceRoot, destinationRoot, mutation.fixture === "php-project");
+  copyFixture(sourceRoot, destinationRoot, mutation.fixture !== "python-project");
   return destinationRoot;
 }
 
@@ -230,6 +296,7 @@ function mutationRow(repositoryRoot: string, image: string, mutation: Mutation):
 
 function integrationRows(repositoryRoot: string, image: string): ResultRow[] {
   const rows = smokeRows(image);
+  installMissingFixtureDependencies(repositoryRoot, image);
   for (const fixture of FIXTURES) rows.push(fixtureCheckRow(repositoryRoot, image, fixture));
   for (const mutation of MUTATIONS) rows.push(mutationRow(repositoryRoot, image, mutation));
   return rows;
