@@ -86,3 +86,46 @@ describe("consumer scaffold", () => {
     expect(existsSync(join(root, ".dependency-cruiser.cjs"))).toBe(false);
   });
 });
+
+describe("consumer .gitignore scaffold", () => {
+  it("creates .gitignore entries when the consumer file is missing", () => {
+    const root = mkdtempSync(join(tmpdir(), "code-quality-scaffold-"));
+    roots.push(root);
+    const logs: string[] = [];
+
+    scaffold(root, config(), (value) => logs.push(value));
+
+    expect(readFileSync(join(root, ".gitignore"), "utf8")).toBe(
+      "# code-quality\nartifacts/quality/\n.code-quality-tmp/\n",
+    );
+    expect(logs).toContain("Updated .gitignore (artifacts/quality/, .code-quality-tmp/)");
+  });
+
+  it("appends missing .gitignore entries without changing existing content", () => {
+    const root = mkdtempSync(join(tmpdir(), "code-quality-scaffold-"));
+    roots.push(root);
+    const existing = "node_modules/\ncoverage/\n";
+    writeFileSync(join(root, ".gitignore"), existing, "utf8");
+    const logs: string[] = [];
+
+    scaffold(root, config(), (value) => logs.push(value));
+
+    expect(readFileSync(join(root, ".gitignore"), "utf8")).toBe(
+      `${existing}# code-quality\nartifacts/quality/\n.code-quality-tmp/\n`,
+    );
+    expect(logs).toContain("Updated .gitignore (artifacts/quality/, .code-quality-tmp/)");
+  });
+
+  it("keeps an existing .gitignore byte-identical when entries are present", () => {
+    const root = mkdtempSync(join(tmpdir(), "code-quality-scaffold-"));
+    roots.push(root);
+    const existing = "node_modules/\n# code-quality\nartifacts/quality/\n.code-quality-tmp/\n";
+    writeFileSync(join(root, ".gitignore"), existing, "utf8");
+    const logs: string[] = [];
+
+    scaffold(root, config(), (value) => logs.push(value));
+
+    expect(readFileSync(join(root, ".gitignore"), "utf8")).toBe(existing);
+    expect(logs).toContain("Kept .gitignore");
+  });
+});

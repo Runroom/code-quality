@@ -12,6 +12,6 @@ export async function initCommand(deps: CliDeps): Promise<number> {
     );
   }
   const config = loadConfig(deps.cwd);
-  scaffold(deps.cwd, config, deps.stdout);
+  scaffold(deps.cwd, config, (line) => deps.stdout(line + "\n"));
   return checkCommand([], "initialize", deps, { keepExisting: true, config });
 }

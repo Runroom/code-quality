@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { stringify } from "yaml";
@@ -20,6 +20,9 @@ export const MAKEFILE_SNIPPET = `quality:
 quality-baseline:
 \tdocker run --rm -v "$$PWD:/work" ghcr.io/runroom/code-quality:v1 baseline
 `;
+
+const QUALITY_GITIGNORE_ENTRIES = ["artifacts/quality/", ".code-quality-tmp/"] as const;
+const QUALITY_GITIGNORE_COMMENT = "# code-quality";
 
 function configPaths(config: ResolvedConfig): Partial<Record<Language, string[]>> {
   const paths: Partial<Record<Language, string[]>> = {};
@@ -49,10 +52,41 @@ function writeWorkflow(root: string): void {
 
 function writeMakefile(root: string, log: (value: string) => void): void {
   if (existsSync(join(root, "Makefile"))) {
+    log("Kept existing Makefile; add these targets to it if you want make quality:");
     log(MAKEFILE_SNIPPET);
     return;
   }
   writeFileSync(join(root, "Makefile"), MAKEFILE_SNIPPET, "utf8");
+}
+
+function writeGitignore(root: string, log: (value: string) => void): void {
+  const file = join(root, ".gitignore");
+  if (!existsSync(file)) {
+    writeFileSync(
+      file,
+      `${QUALITY_GITIGNORE_COMMENT}\n${QUALITY_GITIGNORE_ENTRIES.join("\n")}\n`,
+      "utf8",
+    );
+    log("Updated .gitignore (artifacts/quality/, .code-quality-tmp/)");
+    return;
+  }
+
+  const existing = readFileSync(file, "utf8");
+  const existingLines = existing.split(/\r?\n/);
+  const missing = QUALITY_GITIGNORE_ENTRIES.filter((entry) => !existingLines.includes(entry));
+  if (missing.length === 0) {
+    log("Kept .gitignore");
+    return;
+  }
+
+  const newline = existing.includes("\r\n") ? "\r\n" : "\n";
+  const separator = existing.length === 0 || existing.endsWith("\n") ? "" : newline;
+  writeFileSync(
+    file,
+    `${existing}${separator}${QUALITY_GITIGNORE_COMMENT}${newline}${missing.join(newline)}${newline}`,
+    "utf8",
+  );
+  log("Updated .gitignore (artifacts/quality/, .code-quality-tmp/)");
 }
 
 export function scaffold(root: string, config: ResolvedConfig, log: (value: string) => void): void {
@@ -60,4 +94,5 @@ export function scaffold(root: string, config: ResolvedConfig, log: (value: stri
   mkdirSync(join(root, "quality"), { recursive: true });
   writeWorkflow(root);
   writeMakefile(root, log);
+  writeGitignore(root, log);
 }
