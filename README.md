@@ -81,7 +81,7 @@ jobs:
       working-directory: "."
 ```
 
-The reusable job checks out the full history, runs the optional setup command, invokes plain `code-quality check`, and uploads `artifacts/quality/` for 14 days. It never passes `--update` or `--initialize`, so CI never writes baselines. PHP projects should use `setup: composer install` (or the repository’s equivalent deterministic Composer command) so `vendor/` exists before the PHP unused checks run.
+The reusable job checks out the full history, runs the optional setup command, invokes plain `code-quality check`, and uploads `artifacts/quality/` for 14 days. It never passes `--update` or `--initialize`, so CI never writes baselines. Knip and the PHP unused checks need installed dependencies before they run: use `setup: pnpm install --frozen-lockfile` for pnpm, `setup: npm ci` for npm, or `setup: composer install` for Composer. The first two create `node_modules/` for Knip; Composer creates `vendor/` for the PHP unused checks.
 
 ## Check selection
 

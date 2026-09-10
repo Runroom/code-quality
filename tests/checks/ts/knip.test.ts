@@ -18,6 +18,14 @@ function generatedConfig(paths = ["src"]): Record<string, unknown> {
 describe("knip synthetic parser", () => {
   const ctx = checkContext("/r", "ts", { "src/exports.ts": "export const orphan = 1;\n" });
 
+  it("explains the missing node_modules prerequisite", () => {
+    expect(knipAdapter.applicability(checkContext(root).config)).toEqual({
+      kind: "error",
+      message: "ts-unused (knip) needs installed dependencies: run your package manager install "
+        + "(workflow input `setup: pnpm install --frozen-lockfile` or npm ci) and retry.",
+    });
+  });
+
   it("rejects an unknown non-empty issue type", async () => {
     const input = { issues: [{ file: "src/exports.ts", unlisted: [{ name: "x" }] }] };
     await expect(knipFindings(ctx, input))

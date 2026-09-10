@@ -1,7 +1,10 @@
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 
 import { z } from "zod";
 
+import type { ResolvedConfig } from "../../core/config/types.ts";
+import type { Applicability } from "../../core/types.ts";
 import {
   assertInScope,
   excludeGlobs,
@@ -33,6 +36,18 @@ const TEST_ENTRIES = [
   "**/__tests__/**/*.{ts,tsx,js,mjs,cjs}",
   "**/*.{test,spec}.{ts,tsx,js,mjs,cjs}",
 ];
+
+export function requireNodeModules(config: ResolvedConfig): Applicability {
+  if (!existsSync(join(config.root, "package.json"))
+    || existsSync(join(config.root, "node_modules"))) {
+    return { kind: "run" };
+  }
+  return {
+    kind: "error",
+    message: "ts-unused (knip) needs installed dependencies: run your package manager install "
+      + "(workflow input `setup: pnpm install --frozen-lockfile` or npm ci) and retry.",
+  };
+}
 
 function knipConfig(ctx: CheckContext): string {
   const entry = ctx.paths.flatMap((path) => [
@@ -128,7 +143,7 @@ export const knipAdapter: CheckAdapter = {
   check: "unused",
   language: "ts",
   tool: { bin: "knip", version: "6.35.1" },
-  applicability: () => ({ kind: "run" }),
+  applicability: requireNodeModules,
   configFiles: (ctx) => [knipConfigFile(ctx)],
   command: (ctx) => ({
     bin: "knip",

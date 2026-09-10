@@ -61,13 +61,21 @@ describe("repository CI workflow", () => {
       'docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12 -color',
     );
   });
+});
 
+describe("repository CI image job", () => {
   it("makes the image job depend on unit and actionlint", () => {
     expect(workflow().jobs.image.needs).toEqual(["unit", "actionlint"]);
-    expect(workflow().jobs.image.steps[1]?.uses).toMatch(
+    const imageSteps = workflow().jobs.image.steps;
+    expect(imageSteps[1]?.uses).toBe(workflow().jobs.unit.steps[1]?.uses);
+    expect(imageSteps[1]?.with).toEqual({ version: "10.17.1" });
+    expect(imageSteps[2]?.uses).toBe(workflow().jobs.unit.steps[2]?.uses);
+    expect(imageSteps[2]?.with).toEqual({ "node-version-file": ".nvmrc", cache: "pnpm" });
+    expect(imageSteps[3]?.run).toBe("pnpm install --frozen-lockfile");
+    expect(imageSteps[4]?.uses).toMatch(
       /^docker\/setup-buildx-action@[0-9a-f]{40}$/u,
     );
-    expect(workflow().jobs.image.steps[2]?.with).toMatchObject({ load: true, tags: "code-quality:ci" });
+    expect(imageSteps[5]?.with).toMatchObject({ load: true, tags: "code-quality:ci" });
   });
 
   it("runs versions, doctor, integration, and dogfood against the loaded image", () => {
@@ -82,6 +90,13 @@ describe("repository CI workflow", () => {
     expect(runs).toContain('--user "$(id -u):$(id -g)"');
     expect(runs).toContain("-e GITHUB_ACTIONS=true");
     expect(runs).toContain("code-quality:ci check");
+    const installIndex = steps.findIndex((step) => step.run === "pnpm install --frozen-lockfile");
+    const dogfoodIndex = steps.findIndex((step) => step.name === "Dogfood");
+    expect(installIndex).toBeGreaterThanOrEqual(0);
+    expect(installIndex).toBeLessThan(dogfoodIndex);
+    expect(steps[dogfoodIndex]?.run).toBe(
+      'docker run --rm -v "$PWD:/work" --user "$(id -u):$(id -g)" -e GITHUB_ACTIONS=true -e GITHUB_STEP_SUMMARY=/work/artifacts/step-summary.md code-quality:ci check',
+    );
     expect(steps.find((step) => step.name === "Publish dogfood summary")?.run).toBe(
       'cat artifacts/step-summary.md >> "$GITHUB_STEP_SUMMARY"',
     );
