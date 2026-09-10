@@ -1,0 +1,18 @@
+{% extends "base.html.twig" %}
+{% block content %}
+  <section class="feature-grid">
+    <header class="feature-grid__header">
+      <p class="feature-grid__eyebrow">Featured services</p>
+      <h2 class="feature-grid__title">Build better products</h2>
+    </header>
+    <div class="feature-grid__items">
+      {% for feature in features %}
+        <article class="feature-card" data-feature-id="{{ feature.id }}">
+          <h3 class="feature-card__title">{{ feature.title }}</h3>
+          <p class="feature-card__description">{{ feature.description }}</p>
+          <a class="feature-card__link" href="{{ feature.url }}">Learn more</a>
+        </article>
+      {% endfor %}
+    </div>
+  </section>
+{% endblock %}

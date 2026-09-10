@@ -5,11 +5,12 @@ import { consumerConfigSchema } from "../../../src/core/config/schema.ts";
 describe("consumerConfigSchema", () => {
   it("parses the full configuration example", () => {
     const config = consumerConfigSchema.parse({
-      languages: ["ts", "php", "python"],
+      languages: ["ts", "php", "python", "web"],
       paths: {
         ts: ["src", "packages/ui"],
         php: ["src", "lib", "app"],
         python: ["src"],
+        web: ["templates", "assets"],
       },
       exclude: ["**/generated/**", "**/vendor/**", "**/.venv/**"],
       checks: {
@@ -22,7 +23,7 @@ describe("consumerConfigSchema", () => {
       },
     });
 
-    expect(config.languages).toEqual(["ts", "php", "python"]);
+    expect(config.languages).toEqual(["ts", "php", "python", "web"]);
   });
 
   it("rejects threshold overrides and unknown fields", () => {

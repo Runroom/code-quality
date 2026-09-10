@@ -121,10 +121,56 @@ describe("loadConfig", () => {
 
 });
 
+describe("web and assets configuration", () => {
+  it("includes assets in the TypeScript default roots", () => {
+    withRoot({ "package.json": "{}", "assets/index.ts": "" }, ["src"], (root) => {
+      const config = loadConfig(root);
+      expect(config.languages).toEqual(["ts"]);
+      expect(config.paths).toEqual({ ts: ["src", "assets"] });
+    });
+  });
+
+  it("detects web sources without a manifest", () => {
+    withRoot({ "templates/page.twig": "" }, [], (root) => {
+      const config = loadConfig(root);
+      expect(config.languages).toEqual(["web"]);
+      expect(config.paths).toEqual({ web: ["templates"] });
+    });
+  });
+
+  it("requires files for explicitly configured web", () => {
+    withRoot({ ".code-quality.yml": "languages: [web]\n" }, ["templates"], (root) => {
+      expectLoadFailure(
+        root,
+        "web: no web source files found under templates (extensions: .twig .html .css .scss .less)",
+      );
+    });
+  });
+});
+
+describe("loadConfig auto-detection notices", () => {
+  it("drops a language with no source files and records a notice", () => {
+    withRoot(
+      { "package.json": "{}", "composer.json": "{}", "src/index.php": "" },
+      ["src"],
+      (root) => {
+        const config = loadConfig(root);
+        expect(config.languages).toEqual(["php"]);
+        expect(config.paths).toEqual({ php: ["src"] });
+        expect(config.notices).toEqual([
+          "ts: package.json detected but no ts source files under src; "
+            + "add paths.ts to .code-quality.yml to enable TS checks",
+        ]);
+      },
+    );
+  });
+});
+
 it.each([
-  ["ts", "src"],
+  ["ts", "src, assets"],
   ["php", "src, lib, app"],
   ["python", "src"],
+  ["web", "templates, assets"],
 ] as const)("suggests configured roots when %s has no default path", (language, candidates) => {
   withRoot(
     { ".code-quality.yml": `languages: [${language}]\n` },
@@ -150,10 +196,31 @@ describe("resolved consumer config", () => {
 });
 
 describe("loadConfig source validation", () => {
+  it("treats explicit paths as an explicit language configuration", () => {
+    withRoot(
+      { ".code-quality.yml": "paths:\n  ts: [src]\n", "package.json": "{}" },
+      ["src"],
+      (root) => expectLoadFailure(
+        root,
+        "ts: no ts source files found under src (extensions: .ts .tsx .js .jsx .mjs .cjs)",
+      ),
+    );
+  });
+
+  it("fails when an explicitly configured language has no source files", () => {
+    withRoot({ ".code-quality.yml": "languages: [ts]\n" }, ["src"], (root) => {
+      expectLoadFailure(
+        root,
+        "ts: no ts source files found under src (extensions: .ts .tsx .js .jsx .mjs .cjs)",
+      );
+    });
+  });
+
   it.each([
     ["ts", ".ts .tsx .js .jsx .mjs .cjs"],
     ["php", ".php"],
     ["python", ".py"],
+    ["web", ".twig .html .css .scss .less"],
   ] as const)("fails when %s has no source files", (language, extensions) => {
     withRoot(
       {

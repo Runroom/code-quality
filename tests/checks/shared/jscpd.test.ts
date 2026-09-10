@@ -38,8 +38,9 @@ describe("jscpd adapter", () => {
       ts: ["typescript", "tsx", "javascript", "jsx"],
       php: ["php"],
       python: ["python"],
+      web: ["twig", "html", "css", "scss", "less"],
     } as const;
-    for (const language of ["ts", "php", "python"] as const) {
+    for (const language of ["ts", "php", "python", "web"] as const) {
       const adapter = jscpdAdapter(language);
       const config = JSON.parse(adapter.configFiles(checkContext("/r", language))[0]!.content) as {
         format: string[];

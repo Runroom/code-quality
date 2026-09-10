@@ -1,12 +1,12 @@
 {
   "version": 1,
   "tool": "phpstan@2.2.13",
-  "configHash": "67661f7d7dbf06f3ef12b753ed5c48bd9d89202aabdd956a6cf305a73c898070",
+  "configHash": "d190d4af4c1c69709a715fe0b6c34938a3f304601bab8699280bf1e10203f5ed",
   "findings": {
-    "src/Domain/Entity.php | dead-code | /class:Entity/method:save#shipmonk.deadMethod": 1,
-    "src/Service/Complex.php | dead-code | /class:Complex/method:run#shipmonk.deadMethod": 1,
-    "src/Service/Dead.php | dead-code | /class:Dead/method:alive#shipmonk.deadMethod": 1,
-    "src/Service/Dead.php | dead-code | /class:Dead/method:never#shipmonk.deadMethod": 1,
-    "src/Service/Uses.php | dead-code | /class:Uses/method:composerVersion#shipmonk.deadMethod": 1
+    "src/Domain/Entity.php | dead-code | /class:Entity/method:save#shipmonk.deadMethod#save": 1,
+    "src/Service/Complex.php | dead-code | /class:Complex/method:run#shipmonk.deadMethod#run": 1,
+    "src/Service/Dead.php | dead-code | /class:Dead/method:alive#shipmonk.deadMethod#alive": 1,
+    "src/Service/Dead.php | dead-code | /class:Dead/method:never#shipmonk.deadMethod#never": 1,
+    "src/Service/Uses.php | dead-code | /class:Uses/method:composerVersion#shipmonk.deadMethod#composerVersion": 1
   }
 }

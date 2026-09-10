@@ -80,6 +80,7 @@ export const ADAPTERS: readonly CheckAdapter[] = [
   vultureAdapter,
   deptryAdapter,
   importLinterAdapter,
+  jscpdAdapter("web"),
 ];
 
 function isLogicalId(value: string): value is LogicalCheckId {

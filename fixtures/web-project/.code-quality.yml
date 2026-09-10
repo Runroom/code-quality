@@ -1,0 +1,3 @@
+languages: [web]
+paths:
+  web: [templates, assets]

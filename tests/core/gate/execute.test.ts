@@ -32,6 +32,7 @@ function consumer(): { root: string; config: ResolvedConfig } {
       exclude: [],
       disabled: [],
       architecture: { ts: { kind: "skip" } },
+      notices: [],
       configHash: "a".repeat(64),
     },
   };

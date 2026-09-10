@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { FindingsBuilder } from "../shared/kit.ts";
+import { FindingsBuilder, parseJsonOutput } from "../shared/kit.ts";
 import { requireVendor } from "./vendor.ts";
 import type { CheckAdapter, Findings } from "../shared/kit.ts";
 
@@ -35,6 +35,6 @@ export const requireCheckerAdapter: CheckAdapter = {
     exitCodes: [0, 1],
   }),
   parse: (_ctx, result) => Promise.resolve(
-    requireCheckerFindings(JSON.parse(result.stdout) as unknown),
+    requireCheckerFindings(parseJsonOutput(result.stdout, "composer-require-checker")),
   ),
 };

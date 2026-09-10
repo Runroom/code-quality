@@ -61,9 +61,15 @@ function serializeArchitecture(
   return serialized;
 }
 
-export function configHash(resolved: Omit<ResolvedConfig, "configHash" | "root">): string {
+type ConfigHashInput = Omit<ResolvedConfig, "configHash" | "root" | "notices">
+  & Partial<Pick<ResolvedConfig, "notices">>;
+
+export function configHash(resolved: ConfigHashInput): string {
+  const hashable = Object.fromEntries(
+    Object.entries(resolved).filter(([key]) => key !== "notices"),
+  );
   const canonical = {
-    ...resolved,
+    ...hashable,
     architecture: serializeArchitecture(resolved.architecture),
   };
   return createHash("sha256")

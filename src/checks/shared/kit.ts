@@ -5,6 +5,7 @@ export { POLICY } from "../../core/config/policy.ts";
 export { fail } from "../../core/errors.ts";
 export { FindingsBuilder } from "./findings.ts";
 export { extractMeasurement } from "./measure.ts";
+export { parseJsonOutput } from "./json-output.ts";
 export {
   assertInScope,
   excludeGlobs,

@@ -13,5 +13,5 @@ export async function initCommand(deps: CliDeps): Promise<number> {
   }
   const config = loadConfig(deps.cwd);
   scaffold(deps.cwd, config, deps.stdout);
-  return checkCommand([], "initialize", deps, { keepExisting: true });
+  return checkCommand([], "initialize", deps, { keepExisting: true, config });
 }

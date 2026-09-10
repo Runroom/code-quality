@@ -11,6 +11,7 @@ import {
   fail,
   FindingsBuilder,
   lineColumnToByteOffset,
+  parseJsonOutput,
   relativize,
 } from "../shared/kit.ts";
 import type { CheckAdapter, CheckContext, Findings, GeneratedFile } from "../shared/kit.ts";
@@ -62,8 +63,27 @@ function knipConfig(ctx: CheckContext): string {
     ],
     ignore: excludeGlobs(ctx.config, true),
     ignoreDependencies: [],
+    webpack: false,
     vite: false,
     vitest: false,
+    jest: false,
+    eslint: false,
+    babel: false,
+    postcss: false,
+    prettier: false,
+    stylelint: false,
+    rollup: false,
+    next: false,
+    nuxt: false,
+    storybook: false,
+    playwright: false,
+    cypress: false,
+    tailwind: false,
+    commitlint: false,
+    husky: false,
+    "lint-staged": false,
+    tsup: false,
+    typedoc: false,
   }, null, 2);
 }
 
@@ -154,5 +174,5 @@ export const knipAdapter: CheckAdapter = {
     ],
     exitCodes: [0, 1],
   }),
-  parse: (ctx, result) => knipFindings(ctx, JSON.parse(result.stdout) as unknown),
+  parse: (ctx, result) => knipFindings(ctx, parseJsonOutput(result.stdout, "knip")),
 };

@@ -10,11 +10,32 @@ import { configHash } from "./hash.ts";
 import { defaultPaths, detectLanguages, selectArchitecture } from "./detect.ts";
 import { findSourceFiles, LANGUAGE_EXTENSIONS } from "./sources.ts";
 import {
+  LANGUAGES,
   consumerConfigSchema,
   type ConsumerConfig,
   type Language,
 } from "./schema.ts";
 import type { ArchitectureSelection, ResolvedConfig } from "./types.ts";
+
+const DETECTION_MANIFESTS: Partial<Record<Language, readonly string[]>> = {
+  ts: ["package.json"],
+  php: ["composer.json"],
+  python: ["pyproject.toml", "setup.py"],
+};
+
+const LANGUAGE_LABELS: Record<Language, string> = {
+  ts: "TS",
+  php: "PHP",
+  python: "Python",
+  web: "web",
+};
+
+const DEFAULT_CANDIDATES: Record<Language, string> = {
+  ts: "src, assets",
+  php: "src, lib, app",
+  python: "src",
+  web: "templates, assets",
+};
 
 function issueText(issue: ZodError["issues"][number]): string {
   const path = issue.path.join(".");
@@ -35,12 +56,26 @@ function readYaml(root: string): ConsumerConfig {
   }
 }
 
-function resolveLanguages(root: string, config: ConsumerConfig): Language[] {
-  const languages = config.languages ?? detectLanguages(root);
+interface LanguageResolution {
+  languages: Language[];
+  explicit: Set<Language>;
+}
+
+function configuredPathLanguages(config: ConsumerConfig): Language[] {
+  return LANGUAGES.filter((language) => config.paths?.[language] !== undefined);
+}
+
+function resolveLanguages(root: string, config: ConsumerConfig): LanguageResolution {
+  const configuredPaths = configuredPathLanguages(config);
+  const detected = detectLanguages(root);
+  const languages = config.languages ?? [...new Set([...detected, ...configuredPaths])];
   if (languages.length === 0) {
     return fail("No supported language detected; configure languages in .code-quality.yml.");
   }
-  return [...languages];
+  return {
+    languages: [...languages],
+    explicit: new Set([...config.languages ?? [], ...configuredPaths]),
+  };
 }
 
 function ensureConfiguredPaths(root: string, language: Language, paths: string[]): string[] {
@@ -62,8 +97,22 @@ function ensureSourceFiles(
   );
 }
 
+function detectedManifest(root: string, language: Language): string {
+  const manifests = DETECTION_MANIFESTS[language] ?? [];
+  return manifests.find((manifest) => existsSync(join(root, manifest)))
+    ?? manifests.join(" or ");
+}
+
+function noSourceNotice(root: string, language: Language, paths: string[]): string {
+  const roots = paths.length > 0
+    ? paths.join(", ")
+    : DEFAULT_CANDIDATES[language];
+  return `${language}: ${detectedManifest(root, language)} detected but no ${language} source files under `
+    + `${roots}; add paths.${language} to .code-quality.yml to enable ${LANGUAGE_LABELS[language]} checks`;
+}
+
 function noDefaultPath(language: Language): never {
-  const candidates = language === "php" ? "src, lib, app" : "src";
+  const candidates = DEFAULT_CANDIDATES[language];
   return fail(
     `${language}: no usable source path (${candidates}). Create .code-quality.yml with `
       + `paths.${language} listing your source roots, e.g. paths: { ${language}: [app, lib] }`,
@@ -73,9 +122,11 @@ function noDefaultPath(language: Language): never {
 function resolvePaths(
   root: string,
   languages: Language[],
+  explicit: ReadonlySet<Language>,
   config: ConsumerConfig,
-): Partial<Record<Language, string[]>> {
+): { paths: Partial<Record<Language, string[]>>; notices: string[] } {
   const paths: Partial<Record<Language, string[]>> = {};
+  const notices: string[] = [];
   const excludes = [...BUILTIN_EXCLUSIONS, ...config.exclude ?? [], ...TEST_EXCLUSIONS];
   for (const language of languages) {
     const configured = config.paths?.[language];
@@ -85,10 +136,19 @@ function resolvePaths(
       continue;
     }
     const defaults = defaultPaths(root, language);
-    paths[language] = defaults.length > 0 ? defaults : noDefaultPath(language);
-    ensureSourceFiles(root, language, paths[language], excludes);
+    if (defaults.length === 0) {
+      if (explicit.has(language)) return noDefaultPath(language);
+      notices.push(noSourceNotice(root, language, defaults));
+      continue;
+    }
+    if (findSourceFiles(root, defaults, language, excludes).length === 0) {
+      if (explicit.has(language)) ensureSourceFiles(root, language, defaults, excludes);
+      notices.push(noSourceNotice(root, language, defaults));
+      continue;
+    }
+    paths[language] = defaults;
   }
-  return paths;
+  return { paths, notices };
 }
 
 function resolveArchitecture(
@@ -98,6 +158,10 @@ function resolveArchitecture(
 ): Partial<Record<Language, ArchitectureSelection>> {
   const architecture: Partial<Record<Language, ArchitectureSelection>> = {};
   for (const language of languages) {
+    if (language === "web") {
+      architecture.web = { kind: "skip" };
+      continue;
+    }
     const explicit = config.architecture?.[language]?.rulesFile;
     const selection = selectArchitecture(root, language, explicit);
     if (selection.kind === "missing") {
@@ -112,8 +176,17 @@ function resolveArchitecture(
 
 export function loadConfig(root: string): ResolvedConfig {
   const consumer = readYaml(root);
-  const languages = resolveLanguages(root, consumer);
-  const paths = resolvePaths(root, languages, consumer);
+  const languageResolution = resolveLanguages(root, consumer);
+  const pathResolution = resolvePaths(
+    root,
+    languageResolution.languages,
+    languageResolution.explicit,
+    consumer,
+  );
+  const languages = languageResolution.languages.filter(
+    (language) => pathResolution.paths[language] !== undefined,
+  );
+  const paths = pathResolution.paths;
   const architecture = resolveArchitecture(root, languages, consumer);
   const resolved = {
     languages,
@@ -121,6 +194,7 @@ export function loadConfig(root: string): ResolvedConfig {
     exclude: consumer.exclude ?? [],
     disabled: consumer.checks?.disabled ?? [],
     architecture,
+    notices: pathResolution.notices,
   };
   return { root, ...resolved, configHash: configHash(resolved) };
 }

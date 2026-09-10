@@ -1,6 +1,6 @@
 import { join } from "node:path";
 
-import { POLICY, xml } from "../shared/kit.ts";
+import { parseJsonOutput, POLICY, xml } from "../shared/kit.ts";
 import { phpcsCommand, phpcsFindings, phpcsRuleset } from "./phpcs-shared.ts";
 import type { CheckAdapter } from "../shared/kit.ts";
 
@@ -29,5 +29,5 @@ export const phpcsNestingAdapter: CheckAdapter = {
   applicability: () => ({ kind: "run" }),
   configFiles: () => [{ path: "phpcs-nesting.xml", content: nestingRuleset() }],
   command: (ctx) => phpcsCommand(ctx, join(ctx.tempDir, "phpcs-nesting.xml")),
-  parse: (ctx, result) => phpcsFindings(ctx, JSON.parse(result.stdout) as unknown, NESTING_RULE),
+  parse: (ctx, result) => phpcsFindings(ctx, parseJsonOutput(result.stdout, "phpcs"), NESTING_RULE),
 };

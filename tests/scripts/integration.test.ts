@@ -17,6 +17,7 @@ import {
   formatResultRow,
   formatResultTable,
   dockerArgs,
+  MUTATIONS,
   plannedDependencyInstalls,
   shouldCopyFixturePath,
 } from "../../scripts/integration.ts";
@@ -128,6 +129,15 @@ it("applies copy mutations", () => {
       expect: "regressions",
     });
     expect(readFileSync(join(root, "src", "copy.ts"), "utf8")).toBe("source\n");
+  });
+});
+
+it("defines a web duplication copy mutation", () => {
+  expect(MUTATIONS).toContainEqual({
+    fixture: "web-project",
+    file: "templates/page-c.twig",
+    copyFrom: "templates/page-a.twig",
+    expect: "regressions",
   });
 });
 

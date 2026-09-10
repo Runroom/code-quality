@@ -1,7 +1,7 @@
 {
   "version": 1,
   "tool": "depcruise@18.2.0",
-  "configHash": "dac6d81a112342997184465f371bb1e121bb033b29e178de18f600659af4b3f1",
+  "configHash": "472e853350021ad8903b1e31b40cb7d2dabef5ddbec5c16b6f24dc586ad36440",
   "findings": {
     "src/ui/view.ts | no-ui-to-db | src/db/repo.ts": 1
   }

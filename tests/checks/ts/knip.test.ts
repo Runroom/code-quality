@@ -73,8 +73,30 @@ describe("knip captured fixture", () => {
 });
 
 describe("knip generated config", () => {
-  it("disables the config-executing vite and vitest plugins", () => {
-    expect(generatedConfig()).toMatchObject({ vite: false, vitest: false });
+  it("disables every config-executing plugin", () => {
+    expect(generatedConfig()).toMatchObject({
+      webpack: false,
+      vite: false,
+      vitest: false,
+      jest: false,
+      eslint: false,
+      babel: false,
+      postcss: false,
+      prettier: false,
+      stylelint: false,
+      rollup: false,
+      next: false,
+      nuxt: false,
+      storybook: false,
+      playwright: false,
+      cypress: false,
+      tailwind: false,
+      commitlint: false,
+      husky: false,
+      "lint-staged": false,
+      tsup: false,
+      typedoc: false,
+    });
   });
 
   it("uses conventional source-root and repository-level test entries and project files", () => {

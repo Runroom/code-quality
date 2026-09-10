@@ -2,11 +2,11 @@
 
 ## What it is
 
-Runroom code-quality is a Dockerized, incremental quality gate for TypeScript/JavaScript, PHP, and Python repositories. It runs pinned complexity, cognitive-complexity, exact-duplication, unused-code, and optional architecture checks. Findings are stored as reduction-only baselines, so an existing codebase can adopt the gate without first fixing every historical issue while new or worsened issues still block a change.
+Runroom code-quality is a Dockerized, incremental quality gate for TypeScript/JavaScript, PHP, Python, and web template/style sources. It runs pinned complexity, cognitive-complexity, exact-duplication, unused-code, and optional architecture checks. Findings are stored as reduction-only baselines, so an existing codebase can adopt the gate without first fixing every historical issue while new or worsened issues still block a change.
 
 The policy is fixed in the image. Consumer repositories choose languages, source paths, exclusions, disabled checks with a written reason, and architecture rule files; thresholds and parser behavior are not configurable. See the [quality-gate reference](docs/quality-gate.md) for the complete policy and tool matrix.
 
-Tests are excluded from every blocking check using the built-in test-file patterns. Consumer `exclude` patterns are additive.
+Tests are excluded from every blocking check using the built-in test-file patterns. Generated frontend bundles (`public/build`, `*.min.js`, and `*.min.css`) and Symfony `var/` cache files are also excluded. Consumer `exclude` patterns are additive.
 
 ## Adopt in an existing repo
 
@@ -18,7 +18,7 @@ docker run --rm -v "$PWD:/work" ghcr.io/runroom/code-quality:v1 init
 
 Review the generated `.code-quality.yml`, source paths, `.github/workflows/quality.yml`, and `Makefile`. Commit the `quality/` baselines along with the reviewed configuration. Existing findings are recorded once; later checks fail on new or worsened findings and on stale baseline entries.
 
-`init` uses conventional `src/` source roots (and also checks `lib/` and `app/` for PHP). For a non-`src` layout, it reports the missing default root and shows how to create `.code-quality.yml` with `paths.<language>` listing roots such as `app` or `lib`; add that configuration and rerun `init`.
+`init` uses conventional source roots: `src/` and `assets/` for TS/JS, `src/`, `lib/`, and `app/` for PHP, `src/` for Python, and `templates/` and `assets/` for web sources. If a detected manifest has no source files in its default roots, that language is omitted from the generated configuration and the CLI prints a `Notice: ...` line explaining how to add `paths.<language>`; add that configuration and rerun `init` or `check` to enable the language’s checks. Explicitly configured languages and paths still fail when they contain no source files.
 
 If the repository is PHP, install its application dependencies before checking. The normal CI setup is `composer install`, which creates the `vendor/` directory required by the PHP unused-code checks.
 
@@ -113,10 +113,11 @@ Each run writes to `artifacts/quality/<adapter>/`. The directory contains the na
 
 | Field | Type | Default and constraints |
 | --- | --- | --- |
-| `languages` | list of `ts`, `php`, `python` | All languages detected from manifests; an explicit list selects a subset |
-| `paths.ts` | list of repository-relative directory/file globs | Existing `src/` when TS/JS is detected |
+| `languages` | list of `ts`, `php`, `python`, `web` | Languages detected from manifests or web files; an explicit list selects a subset |
+| `paths.ts` | list of repository-relative directory/file globs | Existing `src/` and `assets/` when TS/JS is detected |
 | `paths.php` | list of repository-relative directory/file globs | Existing `src/`, plus existing `lib/` and `app/` when PHP is detected |
 | `paths.python` | list of repository-relative directory/file globs | Existing `src/` when Python is detected |
+| `paths.web` | list of repository-relative directory/file globs | Existing `templates/` and `assets/` containing `.twig`, `.html`, `.css`, `.scss`, or `.less` files |
 | `exclude` | list of repository-relative glob patterns | No consumer exclusions; built-in test exclusions apply to every blocking check |
 | `checks.disabled` | list of `{ id, reason }` objects | No checks disabled; `reason` must be non-empty prose |
 | `architecture.ts.rulesFile` | repository-relative file path | `.dependency-cruiser.cjs` when it exists; otherwise skipped |
@@ -124,6 +125,20 @@ Each run writes to `artifacts/quality/<adapter>/`. The directory contains the na
 | `architecture.python.rulesFile` | repository-relative file path | `.importlinter` when it exists; otherwise skipped |
 
 An explicitly configured architecture file that is missing is an error. Consumer exclusions apply to applicable checks, while tests remain excluded from duplication regardless of the consumer paths.
+
+A typical Symfony repository with frontend assets can use:
+
+```yaml
+languages: [php, ts, web]
+paths:
+  php: [src]
+  ts: [assets]
+  web: [templates, assets]
+exclude:
+  - "src/Migrations/**"
+```
+
+The migration exclusion is optional and is useful when generated Doctrine migrations should not participate in the gate.
 
 ## Version pinning
 

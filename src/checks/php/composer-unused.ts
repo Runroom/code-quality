@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { excludeGlobs, FindingsBuilder } from "../shared/kit.ts";
+import { excludeGlobs, FindingsBuilder, parseJsonOutput } from "../shared/kit.ts";
 import { requireVendor } from "./vendor.ts";
 import type { CheckAdapter, CheckContext, Findings } from "../shared/kit.ts";
 
@@ -44,6 +44,6 @@ export const composerUnusedAdapter: CheckAdapter = {
     exitCodes: [0],
   }),
   parse: (_ctx, result) => Promise.resolve(
-    composerUnusedFindings(JSON.parse(result.stdout) as unknown),
+    composerUnusedFindings(parseJsonOutput(result.stdout, "composer-unused")),
   ),
 };

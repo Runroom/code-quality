@@ -1,7 +1,7 @@
 {
   "version": 1,
   "tool": "phpcs@4.0.4",
-  "configHash": "67661f7d7dbf06f3ef12b753ed5c48bd9d89202aabdd956a6cf305a73c898070",
+  "configHash": "d190d4af4c1c69709a715fe0b6c34938a3f304601bab8699280bf1e10203f5ed",
   "findings": {
     "src/Service/Complex.php | cognitive-complexity | /class:Complex/method:run": 17
   }
