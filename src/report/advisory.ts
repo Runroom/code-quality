@@ -135,6 +135,7 @@ function reportContext(input: ContextInput): CheckContext {
     artifactDir: artifactDir(config.root, report.id),
     readSource: (file) => readFileSync(join(config.root, file), "utf8"),
     anchor,
+    notice: () => {},
   };
 }
 

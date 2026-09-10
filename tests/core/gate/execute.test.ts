@@ -27,6 +27,7 @@ function consumer(): { root: string; config: ResolvedConfig } {
     root,
     config: {
       root,
+      isDrupal: false,
       languages: ["ts"],
       paths: { ts: ["src"] },
       exclude: [],

@@ -37,7 +37,11 @@ describe("deptry synthetic parser", () => {
       "(^|/)node_modules(/|$)", "(^|/)vendor(/|$)", "(^|/)\\.venv(/|$)",
       "(^|/)dist(/|$)", "(^|/)artifacts(/|$)",
       "(^|/)public/build(/|$)", "(^|/)[^/]*\\.min\\.js$",
-      "(^|/)[^/]*\\.min\\.css$", "(^|/)var(/|$)",
+      "(^|/)[^/]*\\.min\\.css$", "(^|/)web/core(/|$)",
+      "(^|/)docroot/core(/|$)", "(^|/)modules/contrib(/|$)",
+      "(^|/)themes/contrib(/|$)", "(^|/)profiles/contrib(/|$)",
+      "(^|/)libraries(/|$)", "(^|/)sites/[^/]*/files(/|$)",
+      "(^|/)drush(/|$)", "(^|/)ddev\\.provision(/|$)", "(^|/)var(/|$)",
     ]);
   });
 

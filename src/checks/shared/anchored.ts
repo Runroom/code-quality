@@ -1,4 +1,9 @@
-import { firstNonBlankByteOffset, lineColumnToByteOffset } from "../../core/anchor/offsets.ts";
+import {
+  byteOffsetToIndex,
+  firstNonBlankByteOffset,
+  lineColumnToByteOffset,
+} from "../../core/anchor/offsets.ts";
+import { AnchorError } from "../../core/anchor/service.ts";
 import type { CheckContext } from "../../core/types.ts";
 import { FindingsBuilder } from "./findings.ts";
 import { assertInScope, relativize } from "./paths.ts";
@@ -12,6 +17,7 @@ interface AnchoredFinding {
   blockMode: boolean;
   anchorSuffix?: string | undefined;
   fallbackAnchor?: string | undefined;
+  symbol?: string | undefined;
 }
 
 function byteOffset(source: string, location: Location): number {
@@ -22,19 +28,30 @@ function byteOffset(source: string, location: Location): number {
   return firstNonBlankByteOffset(source, location.line);
 }
 
+function fallbackLine(source: string, location: Location): number {
+  if ("line" in location) return location.line;
+  const index = byteOffsetToIndex(source, location.offset);
+  return source.slice(0, index).split("\n").length;
+}
+
 async function resolveAnchor(
   ctx: CheckContext,
   input: {
     file: string; source: string; offset: number; blockMode: boolean;
-    fallback?: string | undefined;
+    fallback?: string | undefined; symbol?: string | undefined; line?: number | undefined;
   },
 ): Promise<string> {
   try {
     return await ctx.anchor.anchor(input.file, input.source, input.offset, input.blockMode);
   } catch (error) {
-    if (input.fallback !== undefined && error instanceof Error
-      && error.message.includes("cannot identify diagnostic anchor")) return input.fallback;
-    throw error;
+    if (!(error instanceof AnchorError)) throw error;
+    if (error.kind !== "unparsed" && error.kind !== "cannot identify") throw error;
+    const reason = error.kind === "unparsed"
+      ? "grammar could not parse the file" : "cannot identify diagnostic anchor";
+    ctx.notice(`anchors for ${input.file} fall back to symbol/line keys (${reason})`);
+    if (input.symbol !== undefined) return `~${input.symbol}`;
+    if (input.fallback !== undefined) return input.fallback;
+    return `~L${input.line ?? 1}`;
   }
 }
 
@@ -48,7 +65,8 @@ export async function addAnchoredFinding(
   const source = ctx.readSource(file);
   const anchor = await resolveAnchor(ctx, {
     file, source, offset: byteOffset(source, input), blockMode: input.blockMode,
-    fallback: input.fallbackAnchor,
+    fallback: input.fallbackAnchor, symbol: input.symbol,
+    line: fallbackLine(source, input),
   });
   findings.add(file, input.rule, `${anchor}${input.anchorSuffix ?? ""}`, input.value);
 }

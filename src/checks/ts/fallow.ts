@@ -2,7 +2,7 @@ import { join } from "node:path";
 
 import { z } from "zod";
 
-import { excludeGlobs, fail, FindingsBuilder, isInScope, lineColumnToByteOffset, parseJsonOutput, POLICY, relativize } from "../shared/kit.ts";
+import { addAnchoredFinding, excludeGlobs, fail, FindingsBuilder, isInScope, parseJsonOutput, POLICY, relativize } from "../shared/kit.ts";
 import type { CheckAdapter, CheckContext, Findings } from "../shared/kit.ts";
 
 const fallowSchema = z.looseObject({
@@ -24,6 +24,11 @@ const fallowSchema = z.looseObject({
   })),
 });
 
+const fallowErrorSchema = z.looseObject({
+  error: z.literal(true),
+  message: z.string(),
+});
+
 function fallowConfig(ctx: CheckContext): string {
   return JSON.stringify({
     ignorePatterns: [...excludeGlobs(ctx.config, true), "artifacts/**"],
@@ -33,6 +38,8 @@ function fallowConfig(ctx: CheckContext): string {
 }
 
 export async function fallowFindings(ctx: CheckContext, input: unknown): Promise<Findings> {
+  const error = fallowErrorSchema.safeParse(input);
+  if (error.success) return fail(error.data.message);
   const report = fallowSchema.parse(input);
   if (report.findings.length !== report.summary.functions_analyzed) {
     return fail("Incomplete Fallow function report");
@@ -42,10 +49,10 @@ export async function fallowFindings(ctx: CheckContext, input: unknown): Promise
     const file = relativize(ctx.root, finding.path);
     // Spec §7: production discovery scans the repository, but the gate owns configured paths.
     if (!isInScope(file, ctx.paths) || finding.cognitive <= POLICY.cognitive) continue;
-    const source = ctx.readSource(file);
-    const offset = lineColumnToByteOffset(source, finding.line, finding.col + 1);
-    const anchor = await ctx.anchor.anchor(file, source, offset, false);
-    findings.add(file, "cognitive-complexity", anchor, finding.cognitive);
+    await addAnchoredFinding(ctx, findings, {
+      file, rule: "cognitive-complexity", value: finding.cognitive,
+      line: finding.line, column: finding.col + 1, blockMode: false, symbol: finding.name,
+    });
   }
   return findings.build();
 }
@@ -65,7 +72,10 @@ export const fallowAdapter: CheckAdapter = {
       "--format", "json", "--config", join(ctx.tempDir, "fallowrc.json"),
     ],
     env: { FALLOW_TELEMETRY_DISABLED: "1" },
-    exitCodes: [0],
+    exitCodes: [0, 2],
   }),
-  parse: (ctx, result) => fallowFindings(ctx, parseJsonOutput(result.stdout, "fallow")),
+  parse: (ctx, result) => fallowFindings(
+    ctx,
+    parseJsonOutput(result.stdout, "fallow", result.stderr),
+  ),
 };

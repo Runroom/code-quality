@@ -105,14 +105,22 @@ describe("init command", () => {
     expect(errors.join(" ")).not.toContain("already exists");
   });
 
-  it("requires a supported manifest", async () => {
+});
+
+describe("init with no supported sources", () => {
+  it("fails when no supported sources resolve", async () => {
     const root = mkdtempSync(join(tmpdir(), "code-quality-init-empty-"));
     roots.push(root);
     const errors: string[] = [];
     expect(await runCli(["node", "code-quality", "init"], command(root, errors))).toBe(1);
-    expect(errors.join(" ")).toContain("No supported manifest");
+    expect(errors.join(" ")).toContain(
+      "Nothing to check: no supported sources found. Declare languages and paths in .code-quality.yml.",
+    );
   });
 
+});
+
+describe("init source discovery", () => {
   it.each(["init", "check"])("notices when an auto-detected language has no default sources for %s", async (name) => {
     const root = mkdtempSync(join(tmpdir(), `code-quality-${name}-missing-src-`));
     roots.push(root);
@@ -122,10 +130,72 @@ describe("init command", () => {
     const errors: string[] = [];
 
     const output: string[] = [];
-    expect(await runCli(["node", "code-quality", name], command(root, errors, output))).toBe(0);
+    expect(await runCli(["node", "code-quality", name], command(root, errors, output)))
+      .toBe(name === "init" ? 0 : 1);
     expect(output.join(" ")).toContain(
-      "Notice: ts: package.json detected but no ts source files under src, assets; "
-        + "add paths.ts to .code-quality.yml to enable TS checks",
+      "Notice: ts: no ts sources under src; using detected roots app",
+    );
+    if (name === "init") expect(errors).toEqual([]);
+    else expect(errors.join(" ")).toContain("quality/ts-alpha-baseline.json is missing");
+  });
+
+});
+
+describe("init with excluded sources", () => {
+  it.each(["init", "check"])(
+    "fails when an auto-detected language has no sources for %s",
+    async (name) => {
+      const root = mkdtempSync(join(tmpdir(), "code-quality-" + name + "-no-sources-"));
+      roots.push(root);
+      mkdirSync(join(root, "tests"));
+      mkdirSync(join(root, "dist"));
+      writeFileSync(join(root, "tests/x.test.ts"), "", "utf8");
+      writeFileSync(join(root, "dist/bundle.js"), "", "utf8");
+      writeFileSync(join(root, "package.json"), "{}", "utf8");
+      const errors: string[] = [];
+      const output: string[] = [];
+
+      expect(await runCli(["node", "code-quality", name], command(root, errors, output))).toBe(1);
+      expect(output.join(" ")).toContain(
+        "Notice: ts: package.json detected but no ts source files under src, assets; "
+          + "add paths.ts to .code-quality.yml to enable TS checks",
+      );
+      expect(errors.join(" ")).toContain(
+        "Nothing to check: no supported sources found. Declare languages and paths in .code-quality.yml.",
+      );
+      expect(output.join(" ")).not.toContain("code-quality: PASS");
+    },
+  );
+
+});
+
+describe("init discovered configuration", () => {
+  it("writes discovered TypeScript roots to the generated configuration", async () => {
+    const root = mkdtempSync(join(tmpdir(), "code-quality-init-discovery-"));
+    roots.push(root);
+    for (const directory of ["common", "plugin-src", "ui-src", "tests", "dist"]) {
+      mkdirSync(join(root, directory));
+    }
+    writeFileSync(join(root, "common/types.ts"), "", "utf8");
+    writeFileSync(join(root, "plugin-src/a.ts"), "", "utf8");
+    writeFileSync(join(root, "ui-src/b.tsx"), "", "utf8");
+    writeFileSync(join(root, "tests/x.test.ts"), "", "utf8");
+    writeFileSync(join(root, "dist/c.js"), "", "utf8");
+    writeFileSync(join(root, "package.json"), "{}", "utf8");
+    const errors: string[] = [];
+    const output: string[] = [];
+
+    expect(await runCli(["node", "code-quality", "init"], command(root, errors, output))).toBe(0);
+    const config = parse(readFileSync(join(root, ".code-quality.yml"), "utf8")) as {
+      languages: string[];
+      paths: Record<string, string[]>;
+    };
+    expect(config).toEqual({
+      languages: ["ts"],
+      paths: { ts: ["common", "plugin-src", "ui-src"] },
+    });
+    expect(output.join(" ")).toContain(
+      "Notice: ts: no ts sources under src; using detected roots common, plugin-src, ui-src",
     );
     expect(errors).toEqual([]);
   });

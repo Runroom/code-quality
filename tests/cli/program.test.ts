@@ -137,6 +137,21 @@ describe("CLI parser and summary failures", () => {
 });
 
 describe("CLI gate aggregation", () => {
+  it("prints an adapter-time anchor notice once per file", async () => {
+    const root = consumer();
+    const first = fakeAdapter({ id: "ts-first" });
+    const second = fakeAdapter({ id: "ts-second" });
+    for (const adapter of [first, second]) {
+      adapter.parse = async (ctx) => {
+        ctx.notice("anchors for src/index.ts fall back to symbol/line keys (grammar could not parse the file)");
+        return {};
+      };
+    }
+    await runCli(["node", "code-quality", "check", "--initialize"], deps(root, [first, second]));
+    expect(outputs.filter((line) => line.startsWith("Notice: anchors for src/index.ts")))
+      .toHaveLength(1);
+  });
+
   it("records an adapter exception and continues with remaining adapters", async () => {
     const root = consumer();
     const broken = fakeAdapter({ id: "ts-broken" });

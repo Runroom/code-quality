@@ -62,5 +62,8 @@ export const ruffAdapter: CheckAdapter = {
       ...ctx.paths],
     exitCodes: [0],
   }),
-  parse: (ctx, result) => ruffFindings(ctx, parseJsonOutput(result.stdout, "ruff")),
+  parse: (ctx, result) => ruffFindings(
+    ctx,
+    parseJsonOutput(result.stdout, "ruff", result.stderr),
+  ),
 };

@@ -13,6 +13,7 @@ const METRICS: Record<string, RegExp> = {
   "eslint(max-depth)": /nested too deeply \((\d+)\)/u,
   "eslint(max-nested-callbacks)": /(?:callbacks|deeply) \((\d+)\)/u,
 };
+const SYMBOL = /(?:Function|Method) ['"]([^'"]+)['"]/u;
 
 const reportSchema = z.looseObject({
   number_of_files: z.number().int().nonnegative(),
@@ -65,6 +66,7 @@ export async function oxlintFindings(ctx: CheckContext, input: unknown): Promise
       file, rule: diagnostic.code,
       value: extractMeasurement(pattern, diagnostic.message, diagnostic.code),
       offset: diagnostic.labels[0]!.span.offset, blockMode,
+      symbol: SYMBOL.exec(diagnostic.message)?.[1],
     });
   }
   return findings.build();
@@ -87,5 +89,8 @@ export const oxlintAdapter: CheckAdapter = {
       "--format", "json", ...ctx.paths],
     exitCodes: [0],
   }),
-  parse: (ctx, result) => oxlintFindings(ctx, parseJsonOutput(result.stdout, "oxlint")),
+  parse: (ctx, result) => oxlintFindings(
+    ctx,
+    parseJsonOutput(result.stdout, "oxlint", result.stderr),
+  ),
 };

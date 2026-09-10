@@ -50,6 +50,6 @@ export const dependencyCruiserAdapter: CheckAdapter = {
     };
   },
   parse: (ctx, result) => Promise.resolve(
-    dependencyCruiserFindings(ctx, parseJsonOutput(result.stdout, "depcruise")),
+    dependencyCruiserFindings(ctx, parseJsonOutput(result.stdout, "depcruise", result.stderr)),
   ),
 };

@@ -91,7 +91,7 @@ function createProgram(deps: CliDeps): Command {
   const state: ProgramState = { exitCode: 0 };
   const program = new Command("code-quality")
     .description("Runroom incremental quality gate")
-    .version("1.1.1")
+    .version("1.1.2")
     .exitOverride()
     .configureOutput({
       writeOut: (value) => deps.stdout(value),

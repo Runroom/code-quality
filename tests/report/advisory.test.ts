@@ -39,6 +39,7 @@ function context(root: string, language: "ts" | "php" | "python"): CheckContext 
     artifactDir: join(root, "artifacts"),
     config: {
       root,
+      isDrupal: false,
       languages: [language],
       paths: { [language]: ["src"] },
       exclude: [],
@@ -49,6 +50,7 @@ function context(root: string, language: "ts" | "php" | "python"): CheckContext 
     },
     readSource: () => "",
     anchor: { anchor: async () => "/" },
+    notice: () => {},
   };
 }
 

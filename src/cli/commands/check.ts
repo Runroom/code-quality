@@ -14,6 +14,9 @@ import type { CheckAdapter } from "../../core/types.ts";
 import { writeSnapshot } from "../../core/snapshot.ts";
 import type { ResolvedConfig } from "../../core/config/types.ts";
 
+const NOTHING_TO_CHECK = "Nothing to check: no supported sources found. Declare languages and paths "
+  + "in .code-quality.yml.";
+
 function summaryFor(outcome: GateOutcome, check: string): string {
   return summaryMarkdown({
     id: outcome.id,
@@ -36,6 +39,24 @@ function printOutcome(
 
 function printSkipped(skipped: Array<{ id: string; reason: string }>, deps: CliDeps): void {
   for (const entry of skipped) deps.stdout(`Skipped: ${entry.id} (${entry.reason})\n`);
+}
+
+function printNoticesOrReject(config: ResolvedConfig, deps: CliDeps): boolean {
+  for (const notice of config.notices) deps.stdout("Notice: " + notice + "\n");
+  if (config.languages.length > 0) return false;
+  deps.stderr(NOTHING_TO_CHECK + "\n");
+  return true;
+}
+
+function runtimeNoticeSink(deps: CliDeps): (message: string) => void {
+  const emitted = new Set<string>();
+  return (message) => {
+    const file = /^anchors for (\S+) /u.exec(message)?.[1];
+    const key = file === undefined ? message : `anchors:${file}`;
+    if (emitted.has(key)) return;
+    emitted.add(key);
+    deps.stdout(`Notice: ${message}\n`);
+  };
 }
 
 function finalCode(outcomes: readonly GateOutcome[]): number {
@@ -93,7 +114,7 @@ export async function checkCommand(
   options: CheckOptions = {},
 ): Promise<number> {
   const config = options.config ?? loadConfig(deps.cwd);
-  for (const notice of config.notices) deps.stdout(`Notice: ${notice}\n`);
+  if (printNoticesOrReject(config, deps)) return 1;
   const registry = mode === "initialize" && options.keepExisting
     ? deps.registry.filter((adapter) => {
       if (!config.languages.includes(adapter.language)) return true;
@@ -102,7 +123,11 @@ export async function checkCommand(
     : deps.registry;
   const selection = selectAdapters(registry, config, parseLogicalIds(ids));
   const outcomes: GateOutcome[] = [];
-  const run = { ...deps.run, env: deps.env };
+  const run = {
+    ...deps.run,
+    env: deps.env,
+    notice: runtimeNoticeSink(deps),
+  };
   for (const entry of selection.failed) {
     const outcome = failedOutcome(entry);
     outcomes.push(outcome);

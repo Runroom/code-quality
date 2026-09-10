@@ -23,6 +23,7 @@ export interface RunDeps {
   spawn: typeof spawnTool;
   verify: typeof verifyTool;
   anchor: AnchorService;
+  notice?: (message: string) => void;
   env?: NodeJS.ProcessEnv;
 }
 
@@ -38,11 +39,13 @@ interface ContextInput {
   tempDir: string;
   artifacts: string;
   anchor: AnchorService;
+  notice?: ((message: string) => void) | undefined;
 }
 
 function createContext(input: ContextInput): CheckContext {
   const { adapter, config, tempDir, artifacts, anchor } = input;
   const paths = config.paths[adapter.language] ?? [];
+  const emitted = new Set<string>();
   return {
     root: config.root,
     config,
@@ -52,6 +55,11 @@ function createContext(input: ContextInput): CheckContext {
     artifactDir: artifacts,
     readSource: (relativeFile) => readFileSync(join(config.root, relativeFile), "utf8"),
     anchor,
+    notice: (message) => {
+      if (emitted.has(message)) return;
+      emitted.add(message);
+      input.notice?.(message);
+    },
   };
 }
 
@@ -86,7 +94,9 @@ async function runInTemp(
   tempDir: string,
 ): Promise<Snapshot> {
   const artifacts = artifactDir(config.root, adapter.id);
-  const context = createContext({ adapter, config, tempDir, artifacts, anchor: deps.anchor });
+  const context = createContext({
+    adapter, config, tempDir, artifacts, anchor: deps.anchor, notice: deps.notice,
+  });
   const generated: GeneratedFile[] = adapter.configFiles(context);
   writeGenerated(tempDir, generated);
   deps.verify(adapter.tool);

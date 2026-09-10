@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "tool": "phpcs@4.0.4",
+  "configHash": "e66bb9f2f4190d9dcc46e99eafc97dd48253112dc22634482abab9182d9af259",
+  "findings": {
+    "src/Service/Complex.php | Generic.Metrics.CyclomaticComplexity | /class:Complex/method:run": 12,
+    "src/Service/Complex.php | Generic.Metrics.NestingLevel | /class:Complex/method:run": 4,
+    "src/Service/Complex.php | Runroom.Metrics.ParameterCount | /class:Complex/method:run": 5,
+    "src/Service/Complex.php | SlevomatCodingStandard.Functions.FunctionLength | /class:Complex/method:run": 66
+  }
+}

@@ -1,7 +1,7 @@
 {
   "version": 1,
   "tool": "oxlint@1.82.0",
-  "configHash": "472e853350021ad8903b1e31b40cb7d2dabef5ddbec5c16b6f24dc586ad36440",
+  "configHash": "30e5965bab93b756d73c3815d4e68fbd5b0e19b797c6b32a80dce524f7fb52b5",
   "findings": {
     "src/cognitive.ts | eslint(max-depth) | /function:nested/if/block/if/block/if/block/if": 4,
     "src/cognitive.ts | eslint(max-depth) | /function:nested/if/block/if/block/if/block/if/block/if": 5,

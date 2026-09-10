@@ -1,7 +1,7 @@
 {
   "version": 1,
   "tool": "ruff@0.16.6",
-  "configHash": "6047506aecaa41a4766f8093c27d2e4047b12b507a53f54f37cfb957663a64a1",
+  "configHash": "2b7ec686151a6782ee8a58da019f29b963f1ccfac954a4de036a6fc91cf30f78",
   "findings": {
     "src/demo_app/complex.py | C901 | /function:busy": 12,
     "src/demo_app/complex.py | PLR0913 | /function:busy": 5

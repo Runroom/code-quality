@@ -21,6 +21,16 @@ describe("spawnTool", () => {
     ).toThrow("exited with 3");
   });
 
+  it("includes bounded stdout and stderr output for a disallowed exit code", () => {
+    expect(() => spawnTool({
+      bin: "node",
+      args: ["-e", "console.log('tool detail'); console.error('configuration failed'); process.exit(2)"],
+      exitCodes: [0],
+    }, process.cwd())).toThrow(
+      "node exited with 2: tool detail | configuration failed",
+    );
+  });
+
   it("accepts an explicitly allowed non-zero exit code", () => {
     const result = spawnTool(
       { bin: "node", args: ["-e", "process.exit(3)"], exitCodes: [0, 3] },

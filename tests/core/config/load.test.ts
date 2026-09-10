@@ -10,7 +10,6 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { QualityError } from "../../../src/core/errors.ts";
 import { loadConfig } from "../../../src/core/config/load.ts";
 
 const fixtureRoot = join(process.cwd(), "tests/fixtures/config");
@@ -51,14 +50,11 @@ function expectLoadFailure(root: string, message: string | RegExp): void {
   expect(() => loadConfig(root)).toThrow(message);
 }
 
-function expectQualityFailure(root: string): void {
-  expect(() => loadConfig(root)).toThrow(QualityError);
-}
-
 describe("loadConfig", () => {
   it("detects TypeScript and defaults to src without YAML", () => {
     withRoot({ "package.json": "{}", "src/index.ts": "" }, ["src"], (root) => {
       const config = loadConfig(root);
+      expect(config.isDrupal).toBe(false);
       expect(config.languages).toEqual(["ts"]);
       expect(config.paths).toEqual({ ts: ["src"] });
     });
@@ -164,6 +160,122 @@ describe("loadConfig auto-detection notices", () => {
       },
     );
   });
+
+  it("discovers TypeScript roots outside conventional directories", () => {
+    withRoot(
+      {
+        "package.json": "{}",
+        "common/types.ts": "",
+        "plugin-src/a.ts": "",
+        "ui-src/b.tsx": "",
+        "tests/x.test.ts": "",
+        "dist/c.js": "",
+      },
+      ["common", "plugin-src", "ui-src", "tests", "dist"],
+      (root) => {
+        const config = loadConfig(root);
+        expect(config.languages).toEqual(["ts"]);
+        expect(config.paths).toEqual({ ts: ["common", "plugin-src", "ui-src"] });
+        expect(config.notices).toEqual([
+          "ts: no ts sources under src; using detected roots common, plugin-src, ui-src",
+        ]);
+      },
+    );
+  });
+
+  it("discovers PHP roots outside conventional directories", () => {
+    withRoot(
+      {
+        "composer.json": "{}",
+        "domain/Entity.php": "",
+        "framework/Kernel.php": "",
+        "tests/EntityTest.php": "",
+        "dist/generated.php": "",
+      },
+      ["domain", "framework", "tests", "dist"],
+      (root) => {
+        const config = loadConfig(root);
+        expect(config.languages).toEqual(["php"]);
+        expect(config.paths).toEqual({ php: ["domain", "framework"] });
+        expect(config.notices).toEqual([
+          "php: no php sources under src; using detected roots domain, framework",
+        ]);
+      },
+    );
+  });
+});
+
+describe("Drupal and vendored-source profiles", () => {
+  it("uses Drupal custom-code roots and reports the profile", () => {
+    withRoot(
+      {
+        "composer.json": JSON.stringify({ require: { "drupal/core-recommended": "^11" } }),
+        "web/core/Core.php": "<?php\n",
+        "web/modules/custom/site/src/Site.php": "<?php\n",
+        "web/modules/contrib/views/src/View.php": "<?php\n",
+        "web/themes/custom/site/templates/page.html": "<main></main>\n",
+        "web/themes/custom/site/js/site.js": "export const site = true;\n",
+        "web/profiles/custom/site/SiteProfile.php": "<?php\n",
+        "drush/Commands.php": "<?php\n",
+        "ddev.provision/Provision.php": "<?php\n",
+      },
+      [],
+      (root) => {
+        const config = loadConfig(root);
+        expect(config.isDrupal).toBe(true);
+        expect(config.languages).toEqual(["ts", "php", "web"]);
+        expect(config.paths).toEqual({
+          ts: ["web/themes/custom"],
+          php: ["web/modules/custom", "web/themes/custom", "web/profiles/custom"],
+          web: ["web/themes/custom"],
+        });
+        expect(config.notices).toContain(
+          "Drupal profile: using custom module, theme, and profile roots while excluding core, "
+            + "contrib, generated, and runtime paths",
+        );
+      },
+    );
+  });
+
+  it("falls back to ordinary discovery when Drupal has no custom roots", () => {
+    withRoot(
+      {
+        "composer.json": JSON.stringify({ require: { "drupal/core": "^11" } }),
+        "domain/Entity.php": "<?php\n",
+      },
+      [],
+      (root) => expect(loadConfig(root).paths.php).toEqual(["domain"]),
+    );
+  });
+});
+
+describe("minified source discovery", () => {
+  it("excludes and reports minified and versioned bundles under source roots", () => {
+    withRoot(
+      {
+        "package.json": "{}",
+        "src/index.ts": "export const value = 1;\n",
+        "src/app.min.js": "minified();\n",
+        "src/theme.min.css": "body{}\n",
+        "src/swagger-ui-4.18.3.js": "vendored();\n",
+        "src/generated.js": "x".repeat(1001),
+        "src/library-1.2.3.js": "vendored();\n",
+        "src/vendor-2.0.0.js": "vendored();\n",
+      },
+      [],
+      (root) => {
+        const config = loadConfig(root);
+        expect(config.exclude).toEqual([
+          "src/app.min.js", "src/generated.js", "src/library-1.2.3.js",
+          "src/swagger-ui-4.18.3.js", "src/theme.min.css", "src/vendor-2.0.0.js",
+        ]);
+        expect(config.notices).toContain(
+          "skipping minified/vendored files: src/app.min.js, src/generated.js, "
+            + "src/library-1.2.3.js, src/swagger-ui-4.18.3.js, src/theme.min.css (+1 more)",
+        );
+      },
+    );
+  });
 });
 
 it.each([
@@ -250,7 +362,9 @@ describe("loadConfig source validation", () => {
 });
 
 describe("loadConfig failures", () => {
-  it("uses QualityError for configuration failures", () => {
-    withRoot({}, [], expectQualityFailure);
+  it("returns an empty resolved configuration when no language is detected", () => {
+    withRoot({}, [], (root) => {
+      expect(loadConfig(root)).toMatchObject({ languages: [], paths: {}, notices: [] });
+    });
   });
 });

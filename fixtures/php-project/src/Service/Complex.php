@@ -9,6 +9,7 @@ final class Complex
     public function run(int $a, int $b, int $c, int $d, int $e): int
     {
         $result = 0;
+        $x = new \DateTimeImmutable()->format('Y');
 
         if ($a > 0) {
             $result += $a;

@@ -30,11 +30,24 @@ export const requireCheckerAdapter: CheckAdapter = {
   configFiles: () => [],
   command: (ctx) => ({
     bin: "composer-require-checker",
-    args: ["check", "--output=json", "composer.json"],
+    args: ["check", "--ignore-parse-errors", "--output=json", "composer.json"],
     cwd: ctx.root,
     exitCodes: [0, 1],
   }),
-  parse: (_ctx, result) => Promise.resolve(
-    requireCheckerFindings(parseJsonOutput(result.stdout, "composer-require-checker")),
-  ),
+  parse: (ctx, result) => {
+    const output = `${result.stdout}\n${result.stderr}`;
+    if (result.exitCode !== 0
+      && output.includes("There were no symbols found, please check your configuration")) {
+      ctx.notice(
+        "composer-require-checker found no symbols to analyse "
+          + "(composer.json autoload does not cover the configured paths); check skipped",
+      );
+      return Promise.resolve({});
+    }
+    return Promise.resolve(
+      requireCheckerFindings(
+        parseJsonOutput(result.stdout, "composer-require-checker", result.stderr),
+      ),
+    );
+  },
 };

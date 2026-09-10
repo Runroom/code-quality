@@ -8,6 +8,7 @@ import { fakeAdapter } from "../../helpers/fake-adapter.ts";
 function config(languages: ResolvedConfig["languages"]): ResolvedConfig {
   return {
     root: "/tmp/consumer",
+    isDrupal: false,
     languages,
     paths: { ts: ["src"], php: ["src"], web: ["templates", "assets"] },
     exclude: [],

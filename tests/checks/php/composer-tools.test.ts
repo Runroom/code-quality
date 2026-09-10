@@ -7,7 +7,10 @@ import {
   composerUnusedAdapter,
   composerUnusedFindings,
 } from "../../../src/checks/php/composer-unused.ts";
-import { requireCheckerFindings } from "../../../src/checks/php/require-checker.ts";
+import {
+  requireCheckerAdapter,
+  requireCheckerFindings,
+} from "../../../src/checks/php/require-checker.ts";
 import { checkContext } from "../../helpers/check-context.ts";
 
 describe("composer tool synthetic parsers", () => {
@@ -42,6 +45,31 @@ describe("composer tool synthetic parsers", () => {
   it("rejects require-checker output missing unknown-symbols", () => {
     expect(() => requireCheckerFindings({
       _meta: { "composer-require-checker": { version: "4.24.0" }, date: "today" },
+    })).toThrow();
+  });
+
+  it("ignores parse errors in the require-checker command", () => {
+    expect(requireCheckerAdapter.command(checkContext("/r", "php")).args).toContain(
+      "--ignore-parse-errors",
+    );
+  });
+
+  it("skips require-checker when no symbols are found", async () => {
+    const context = checkContext("/r", "php");
+    await expect(requireCheckerAdapter.parse(context, {
+      stdout: "",
+      stderr: "There were no symbols found, please check your configuration",
+      exitCode: 1,
+    })).resolves.toEqual({});
+    expect(context.config.notices).toContain(
+      "composer-require-checker found no symbols to analyse "
+        + "(composer.json autoload does not cover the configured paths); check skipped",
+    );
+  });
+
+  it("keeps other require-checker failures fatal", () => {
+    expect(() => requireCheckerAdapter.parse(checkContext("/r", "php"), {
+      stdout: "not-json", stderr: "tool failed", exitCode: 1,
     })).toThrow();
   });
 });

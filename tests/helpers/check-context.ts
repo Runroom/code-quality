@@ -9,16 +9,18 @@ export function checkContext(
   language: Language = "ts",
   sources: Readonly<Record<string, string>> = {},
 ): CheckContext {
-  return {
+  const notices: string[] = [];
+  const context: CheckContext = {
     root,
     config: {
       root,
+      isDrupal: false,
       languages: [language],
       paths: { [language]: ["src"] },
       exclude: [],
       disabled: [],
       architecture: {},
-      notices: [],
+      notices,
       configHash: "a".repeat(64),
     },
     language,
@@ -27,5 +29,9 @@ export function checkContext(
     artifactDir: "/tmp/artifacts",
     readSource: (file) => sources[file] ?? readFileSync(join(root, file), "utf8"),
     anchor: createAnchorService(),
+    notice: (message) => {
+      if (!notices.includes(message)) notices.push(message);
+    },
   };
+  return context;
 }

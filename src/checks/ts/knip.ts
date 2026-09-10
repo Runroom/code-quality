@@ -28,9 +28,10 @@ const issueSchema = z.object({
   types: z.array(itemSchema).optional(),
   dependencies: z.array(itemSchema).optional(),
   devDependencies: z.array(itemSchema).optional(),
-}).catchall(z.array(z.unknown()));
+}).catchall(z.unknown());
 const knipSchema = z.looseObject({ issues: z.array(issueSchema) });
 const KNOWN_TYPES = new Set(["file", "files", "exports", "types", "dependencies", "devDependencies"]);
+const NON_ISSUE_TYPES = new Set(["owners", "ignored", "catalog"]);
 const TEST_ENTRIES = [
   "tests/**/*.{ts,tsx,js,mjs,cjs}",
   "test/**/*.{ts,tsx,js,mjs,cjs}",
@@ -105,6 +106,7 @@ function knipConfig(ctx: CheckContext): string {
     "lint-staged": false,
     tsup: false,
     typedoc: false,
+    payload: false,
   }, null, 2);
 }
 
@@ -114,7 +116,8 @@ function knipConfigFile(ctx: CheckContext): GeneratedFile {
 
 function rejectUnknown(issue: z.infer<typeof issueSchema>): void {
   for (const [type, entries] of Object.entries(issue)) {
-    if (!KNOWN_TYPES.has(type) && Array.isArray(entries) && entries.length > 0) {
+    if (!KNOWN_TYPES.has(type) && !NON_ISSUE_TYPES.has(type)
+      && (!Array.isArray(entries) || entries.length > 0)) {
       return fail(`Unknown knip issue type ${type} in ${issue.file}`);
     }
   }
@@ -159,10 +162,14 @@ async function addExports(
   }
 }
 
-function addDependencies(issue: z.infer<typeof issueSchema>, out: FindingsBuilder): void {
+function addDependencies(
+  ctx: CheckContext,
+  issue: z.infer<typeof issueSchema>,
+  out: FindingsBuilder,
+): void {
   for (const item of [...(issue.dependencies ?? []), ...(issue.devDependencies ?? [])]) {
-    const file = issue.file;
-    assertInScope(file, [], ["package.json"]);
+    const file = relativize(ctx.root, issue.file);
+    assertInScope(file, [], ["package.json", "**/package.json"]);
     out.add(file, "unused-dependency", item.name, 1);
   }
 }
@@ -174,7 +181,7 @@ export async function knipFindings(ctx: CheckContext, input: unknown): Promise<F
     rejectUnknown(issue);
     addFiles(ctx, issue, findings);
     await addExports(ctx, issue, findings);
-    addDependencies(issue, findings);
+    addDependencies(ctx, issue, findings);
   }
   return findings.build();
 }
@@ -195,5 +202,8 @@ export const knipAdapter: CheckAdapter = {
     ],
     exitCodes: [0, 1],
   }),
-  parse: (ctx, result) => knipFindings(ctx, parseJsonOutput(result.stdout, "knip")),
+  parse: (ctx, result) => knipFindings(
+    ctx,
+    parseJsonOutput(result.stdout, "knip", result.stderr),
+  ),
 };

@@ -35,9 +35,13 @@ function toolEnvironment(invocation: ToolInvocation): NodeJS.ProcessEnv {
   };
 }
 
-function stderrTail(stderr: string): string {
-  const text = stderr.trim();
-  return text.length === 0 ? "" : `: ${text.slice(-2000)}`;
+function outputTail(stdout: string, stderr: string): string {
+  const lines = `${stdout}\n${stderr}`.split(/\r?\n/u)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .slice(-3)
+    .map((line) => line.slice(-200));
+  return lines.length === 0 ? "" : `: ${lines.join(" | ")}`;
 }
 
 function processError(invocation: ToolInvocation, error: Error): never {
@@ -64,7 +68,7 @@ export function spawnTool(invocation: ToolInvocation, root: string): ToolResult 
   const stderr = result.stderr ?? "";
   const exitCode = result.status ?? 1;
   if (!accepted(invocation, exitCode)) {
-    return fail(`${invocation.bin} exited with ${exitCode}${stderrTail(stderr)}`);
+    return fail(`${invocation.bin} exited with ${exitCode}${outputTail(stdout, stderr)}`);
   }
   return { stdout, stderr, exitCode };
 }

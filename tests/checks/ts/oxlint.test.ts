@@ -111,6 +111,40 @@ describe("oxlint synthetic parser", () => {
   });
 });
 
+describe("oxlint structural recovery", () => {
+  it("anchors max-params function types as named methods", async () => {
+    const typed = "export type Repo = { search: (a, b, c, d, e) => Promise<X> };\n";
+    const result = await oxlintFindings(
+      checkContext("/r", "ts", { "src/a.ts": typed }),
+      report("eslint(max-params)", "Function 'search' has too many parameters (5).", 28),
+    );
+    expect(result).toEqual({ "src/a.ts | eslint(max-params) | /type:Repo/method:search": 5 });
+  });
+
+  it("falls back to a symbol when the diagnostic is in a parse-error region", async () => {
+    const broken = "if ( function busy(a, b, c, d, e) { return 1; }\n";
+    const fallback = checkContext("/r", "ts", { "src/a.ts": broken });
+    const result = await oxlintFindings(
+      fallback,
+      report("eslint(max-params)", "Function 'busy' has too many parameters (5).", 14),
+    );
+    expect(result).toEqual({ "src/a.ts | eslint(max-params) | ~busy": 5 });
+    expect(fallback.config.notices).toEqual([
+      "anchors for src/a.ts fall back to symbol/line keys (grammar could not parse the file)",
+    ]);
+  });
+
+  it("falls back to the diagnostic line when no symbol is available", async () => {
+    const broken = "// first\nif ( function busy(a, b, c, d, e) { return 1; }\n";
+    const fallback = checkContext("/r", "ts", { "src/a.ts": broken });
+    const result = await oxlintFindings(
+      fallback,
+      report("eslint(max-depth)", "Blocks are nested too deeply (4).", 54),
+    );
+    expect(result).toEqual({ "src/a.ts | eslint(max-depth) | ~L2": 4 });
+  });
+});
+
 describe("oxlint captured fixture", () => {
   it("contains findings for exactly all five configured rules", async () => {
     const reportInput = JSON.parse(readFileSync(nativeFile, "utf8")) as {

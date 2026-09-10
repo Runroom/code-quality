@@ -54,6 +54,13 @@ describe("knip synthetic parser", () => {
       .rejects.toThrow("Unknown knip issue type unlisted in src/exports.ts");
   });
 
+  it("ignores known non-issue metadata keys", async () => {
+    const input = { issues: [{
+      file: "package.json", owners: ["team"], ignored: { dependencies: ["x"] }, catalog: {},
+    }] };
+    await expect(knipFindings(ctx, input)).resolves.toEqual({});
+  });
+
   it("rejects the same export twice as ambiguous", async () => {
     const item = { name: "orphan" };
     const input = { issues: [{ file: "src/exports.ts", exports: [item, item] }] };
@@ -67,6 +74,17 @@ describe("knip synthetic parser", () => {
       name: "orphan", line: 1, col: 14,
     }] }] };
     await expect(knipFindings(broken, input)).rejects.toThrow("grammar parse failed");
+  });
+
+});
+
+it("accepts unused dependencies from workspace package manifests", async () => {
+  const input = { issues: [{
+    file: "packages/cli/package.json",
+    dependencies: [{ name: "left-pad" }],
+  }] };
+  await expect(knipFindings(checkContext("/r", "ts"), input)).resolves.toEqual({
+    "packages/cli/package.json | unused-dependency | left-pad": 1,
   });
 });
 
@@ -115,6 +133,7 @@ describe("knip generated config", () => {
       "lint-staged": false,
       tsup: false,
       typedoc: false,
+      payload: false,
     });
   });
 

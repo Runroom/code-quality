@@ -6,6 +6,8 @@ Runroom code-quality is a Dockerized, incremental quality gate for TypeScript/Ja
 
 The policy is fixed in the image. Consumer repositories choose languages, source paths, exclusions, disabled checks with a written reason, and architecture rule files; thresholds and parser behavior are not configurable. See the [quality-gate reference](docs/quality-gate.md) for the complete policy and tool matrix.
 
+The image uses Oxlint, Fallow, jscpd, Knip, and dependency-cruiser for TS/JS; PHPCS with Slevomat and the Runroom standard, PHPStan, deptrac, composer-unused, and composer-require-checker for PHP; and Ruff, complexipy, Vulture, deptry, and import-linter for Python.
+
 Tests are excluded from every blocking check using the built-in test-file patterns. Generated frontend bundles (`public/build`, `*.min.js`, and `*.min.css`) and Symfony `var/` cache files are also excluded. Consumer `exclude` patterns are additive.
 
 ## Adopt in an existing repo
@@ -26,7 +28,9 @@ Review the generated `.code-quality.yml`, source paths, `.github/workflows/quali
 
 Commit the `quality/` baselines along with the reviewed configuration. `artifacts/quality/` is per-run evidence and is never committed. Existing findings are recorded once; later checks fail on new or worsened findings and on stale baseline entries.
 
-`init` uses conventional source roots: `src/` and `assets/` for TS/JS, `src/`, `lib/`, and `app/` for PHP, `src/` for Python, and `templates/` and `assets/` for web sources. If a detected manifest has no source files in its default roots, that language is omitted from the generated configuration and the CLI prints a `Notice: ...` line explaining how to add `paths.<language>`; add that configuration and rerun `init` or `check` to enable the language’s checks. Explicitly configured languages and paths still fail when they contain no source files.
+`init` uses conventional source roots: `src/` and `assets/` for TS/JS, `src/`, `lib/`, and `app/` for PHP, `src/` for Python, and `templates/` and `assets/` for web sources. If an auto-detected manifest has no source files in its default roots, `init` discovers eligible depth-1 source directories and records them in `paths.<language>`; excluded and conventional non-source directories are ignored. If no roots are discovered, that language is omitted and the CLI prints a `Notice: ...` line explaining how to add `paths.<language>`. Explicitly configured languages and paths still fail when they contain no source files.
+
+Drupal projects that require `drupal/core` or `drupal/core-recommended` use their custom code automatically. For example, a standard `web/` docroot resolves PHP to `web/modules/custom`, `web/themes/custom`, and `web/profiles/custom`, while web and theme JavaScript checks use `web/themes/custom`. The equivalent `docroot/` paths are supported. Drupal core, contrib packages, public files, libraries, Drush, and DDEV provisioning code are excluded.
 
 If the repository is PHP, install its application dependencies before checking. The normal CI setup is `composer install`, which creates the `vendor/` directory required by the PHP unused-code checks.
 
@@ -109,6 +113,8 @@ The IDs are `complexity`, `cognitive`, `duplication`, `unused`, and `architectur
 
 Each concrete adapter owns `quality/<adapter-id>-baseline.json`. A snapshot records the schema version, exact tool stamp, configuration hash, and positive finding counts. Findings use stable structural anchors instead of line numbers; exact duplication uses the native jscpd fingerprint as its identity.
 
+The CLI prints `Notice:` lines for non-fatal limitations, including source-root discovery and syntax-grammar fallbacks. A grammar fallback uses `~symbol` or `~L<line>` in the baseline key and should be reviewed because it is less stable than a structural anchor.
+
 Initialize a check once with `check --initialize` after reviewing its current findings. Plain `check` fails when a finding is new or its value increased. A finding that disappears or decreases is marked stale and also fails until the baseline is refreshed. `baseline` is a local reduction-only update: it writes a tighter snapshot only when there is no regression. A tool-version or configuration-hash mismatch is an explicit regeneration event; review the change, remove the affected snapshot, and run `check --initialize`. CI refuses all baseline-writing modes.
 
 ## Artifacts
@@ -147,6 +153,16 @@ exclude:
 ```
 
 The migration exclusion is optional and is useful when generated Doctrine migrations should not participate in the gate.
+
+A Drupal repository normally needs no path override:
+
+```yaml
+# composer.json requires drupal/core-recommended
+exclude:
+  - "web/modules/custom/site/generated/**"
+```
+
+The Drupal profile discovers custom modules, themes, and profiles and prints a `Notice:` describing the applied defaults. Normal applicable complexity, cognitive-complexity, duplication, and architecture checks run for the detected custom-code languages; PHP `composer-unused` and `composer-require-checker` run with installed Composer dependencies, while PHPStan dead-code analysis is skipped because consumer PHPStan extensions are incompatible with the image.
 
 ## Version pinning
 

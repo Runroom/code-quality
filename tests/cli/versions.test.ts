@@ -6,7 +6,7 @@ import { ADAPTERS, LIBRARY_PINS, TOOL_PINS } from "../../src/registry.ts";
 describe("versionsText", () => {
   it("prints tools and libraries in registry order", () => {
     const lines = versionsText().split("\n");
-    expect(lines).toHaveLength(18);
+    expect(lines).toHaveLength(17);
     expect(lines).toEqual([
       ...TOOL_PINS.map(({ bin, version }) => `${bin} ${version}`),
       ...LIBRARY_PINS.map(({ name, version }) => `${name} ${version} (library)`),

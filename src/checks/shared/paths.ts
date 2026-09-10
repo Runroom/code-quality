@@ -1,5 +1,7 @@
 import { isAbsolute, relative, sep } from "node:path";
 
+import picomatch from "picomatch";
+
 import { fail } from "../../core/errors.ts";
 import { BUILTIN_EXCLUSIONS, TEST_EXCLUSIONS } from "../../core/config/exclusions.ts";
 import type { ResolvedConfig } from "../../core/config/types.ts";
@@ -42,7 +44,7 @@ export function assertInScope(
   paths: readonly string[],
   extra: readonly string[] = [],
 ): void {
-  if (isInScope(file, paths) || extra.includes(file)) return;
+  if (isInScope(file, paths) || extra.some((pattern) => picomatch(pattern)(file))) return;
   return fail(`${file} is outside configured paths`);
 }
 

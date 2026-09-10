@@ -1,7 +1,7 @@
 {
   "version": 1,
   "tool": "deptry@0.25.1",
-  "configHash": "6047506aecaa41a4766f8093c27d2e4047b12b507a53f54f37cfb957663a64a1",
+  "configHash": "2b7ec686151a6782ee8a58da019f29b963f1ccfac954a4de036a6fc91cf30f78",
   "findings": {
     "pyproject.toml | deptry-DEP002 | requests": 1
   }
