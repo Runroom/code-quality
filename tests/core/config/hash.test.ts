@@ -10,6 +10,7 @@ const baseConfig: Omit<ResolvedConfig, "root" | "configHash"> = {
   exclude: [],
   disabled: [],
   architecture: { ts: { kind: "skip" } },
+  notices: [],
 };
 
 describe("canonicalJson", () => {
@@ -73,6 +74,12 @@ describe("configHash", () => {
   it("changes when an exclusion is added", () => {
     expect(configHash(baseConfig)).not.toBe(
       configHash({ ...baseConfig, exclude: ["**/generated/**"] }),
+    );
+  });
+
+  it("ignores notices when hashing", () => {
+    expect(configHash(baseConfig)).toBe(
+      configHash({ ...baseConfig, notices: ["ts: no sources"] }),
     );
   });
 

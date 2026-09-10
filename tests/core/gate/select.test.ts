@@ -9,10 +9,11 @@ function config(languages: ResolvedConfig["languages"]): ResolvedConfig {
   return {
     root: "/tmp/consumer",
     languages,
-    paths: { ts: ["src"], php: ["src"] },
+    paths: { ts: ["src"], php: ["src"], web: ["templates", "assets"] },
     exclude: [],
     disabled: [],
     architecture: {},
+    notices: [],
     configHash: "a".repeat(64),
   };
 }
@@ -21,6 +22,7 @@ const registry = [
   fakeAdapter({ id: "ts-complexity", check: "complexity" }),
   fakeAdapter({ id: "ts-unused", check: "unused" }),
   fakeAdapter({ id: "php-complexity", language: "php", check: "complexity" }),
+  fakeAdapter({ id: "web-duplication", language: "web", check: "duplication" }),
 ];
 
 describe("selectAdapters", () => {
@@ -72,5 +74,12 @@ describe("selectAdapters", () => {
     const selection = selectAdapters([broken, registry[0]!], config(["ts"]), []);
     expect(selection.adapters).toEqual([registry[0]]);
     expect(selection.failed).toEqual([{ id: "ts-broken", message: "vendor is missing" }]);
+  });
+
+  it("selects only duplication for web without skip noise", () => {
+    const selection = selectAdapters(registry, config(["web"]), []);
+    expect(selection.adapters.map((adapter) => adapter.id)).toEqual(["web-duplication"]);
+    expect(selection.skipped).toEqual([]);
+    expect(selection.failed).toEqual([]);
   });
 });

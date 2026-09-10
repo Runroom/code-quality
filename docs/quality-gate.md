@@ -8,7 +8,11 @@ The policy is owned by the image and is not a consumer setting. `.code-quality.y
 
 ## Built-in test exclusions
 
-Every blocking check applies the built-in `TEST_EXCLUSIONS` patterns, so test files are excluded from complexity, cognitive complexity, exact duplication, unused-code, and architecture checks. The patterns are `**/*.test.*`, `**/*.spec.*`, `**/__tests__/**`, `**/tests/**`, `**/test/**`, `**/*Test.php`, `**/test_*.py`, `**/*_test.py`, and `**/conftest.py`. Consumer `exclude` patterns are additive.
+Every blocking check applies the built-in `TEST_EXCLUSIONS` patterns, so test files are excluded from complexity, cognitive complexity, exact duplication, unused-code, and architecture checks. The patterns are `**/*.test.*`, `**/*.spec.*`, `**/__tests__/**`, `**/tests/**`, `**/test/**`, `**/*Test.php`, `**/test_*.py`, `**/*_test.py`, and `**/conftest.py`. Generated frontend bundles under `public/build`, `*.min.js`, `*.min.css`, and Symfony `var/` cache files are also built-in exclusions. Consumer `exclude` patterns are additive.
+
+## Language detection
+
+Without an explicit `languages` list, manifests detect TS/JS from `package.json`, PHP from `composer.json`, and Python from `pyproject.toml` or `setup.py`. Web needs no manifest: `.twig`, `.html`, `.css`, `.scss`, or `.less` files under `templates/` or `assets/` detect it. An auto-detected manifest language whose default roots contain no source files is omitted and reported as a `Notice: ...` line with instructions for `paths.<language>`; languages listed explicitly or given explicit paths still fail when no source files are found.
 
 ## Thresholds by language
 
@@ -23,6 +27,7 @@ The v1 thresholds are fixed as follows.
 | Cognitive complexity | PHP | Slevomat coding standard 8.31.1 through PHPCS | `SlevomatCodingStandard.Complexity.Cognitive` maxComplexity 15; values greater than 15 block. |
 | Cognitive complexity | Python | complexipy 8.0.1 | SARIF `ruleId: CC001`; values greater than 15 block, with the measurement and source location read from SARIF. |
 | Exact duplication | TS/JS, PHP, Python | jscpd 5.2.0 | Mild mode, minimum 50 tokens and 5 lines; tests are excluded from every blocking check. Native fingerprints are the baseline keys. |
+| Exact duplication | Web | jscpd 5.2.0 | The only web check; scans Twig, HTML, CSS, SCSS, and Less in mild mode with a minimum of 50 tokens and 5 lines. Native fingerprints are the baseline keys. |
 | Unused code | TS/JS | Knip 6.35.1 | Unused files, exports, types, dependencies, and devDependencies. |
 | Unused code | PHP | composer-unused 0.9.6, composer-require-checker 4.24.0, PHPStan 2.2.13 with ShipMonk dead-code-detector 1.4.0 | Unused packages, invalid or unused Composer requirements, and dead code. |
 | Unused code | Python | Vulture 2.16 and deptry 0.25.1 | Unused code and dependency problems. |
@@ -77,7 +82,7 @@ The comparison is per key. A reduction in one finding cannot fund an increase in
 
 ## Exact duplication
 
-The duplication gate uses jscpd 5.2.0 in mild mode with `minTokens: 50` and `minLines: 5`. Tests are excluded from every blocking check through the built-in test exclusion list regardless of consumer paths; consumer `exclude` patterns apply as well. The tool writes a native artifact-side baseline while scanning, but the committed quality snapshot remains owned by the code-quality comparator. Small repositories whose source files are all below that detection window yield an empty baseline; a repository with no candidate source files fails clearly before jscpd runs.
+The duplication gate uses jscpd 5.2.0 in mild mode with `minTokens: 50` and `minLines: 5`. Web duplication enables the `twig`, `html`, `css`, `scss`, and `less` jscpd formats. Tests are excluded from every blocking check through the built-in test exclusion list regardless of consumer paths; consumer `exclude` patterns apply as well. The tool writes a native artifact-side baseline while scanning, but the committed quality snapshot remains owned by the code-quality comparator. Small repositories whose source files are all below that detection window yield an empty baseline; a repository with no candidate source files fails clearly before jscpd runs.
 
 For ordinary checks, keys are normalized as `<file> | <rule> | <anchor>`. Duplication is the explicit exception: each native jscpd fingerprint is the key and its native occurrence count is the value. The native JSON report and baseline are retained under the adapter artifact directory for review.
 
@@ -89,9 +94,11 @@ Unused checks are split into concrete adapters so each tool has its own version 
 - PHP uses composer-unused for packages, composer-require-checker for Composer requirements, and PHPStan with ShipMonk’s dead-code detector for dead code.
 - Python uses Vulture for unused symbols and deptry for dependency diagnostics.
 
-Knip requires an installed `node_modules/` directory when the repository has a `package.json`. Run the repository’s package-manager install before `code-quality check`; in reusable CI, use the `setup` input, for example `setup: pnpm install --frozen-lockfile` or `setup: npm ci`. The gate reports this prerequisite directly when it is missing. Knip runs with the vite and vitest plugins disabled because they execute the consumer config through the mounted node_modules. Its entry heuristics cover conventional `index`, `main`, and `cli` files, and files under `bin` directories in each configured source root. Repository-level `tests`, `test`, `__tests__`, and `*.test`/`*.spec` patterns are explicit entries and project files regardless of configured source paths, so test-only export usage is resolved. Scripts referenced by `package.json` scripts are also treated as entries, such as `node scripts/build.ts`.
+Knip requires an installed `node_modules/` directory when the repository has a `package.json`. Run the repository’s package-manager install before `code-quality check`; in reusable CI, use the `setup` input, for example `setup: pnpm install --frozen-lockfile` or `setup: npm ci`. The gate reports this prerequisite directly when it is missing. Knip runs with configuration-executing plugins disabled; dependencies referenced only from tool configuration files appear as unused and are simply baselined. Its entry heuristics cover conventional `index`, `main`, and `cli` files, and files under `bin` directories in each configured source root. Repository-level `tests`, `test`, `__tests__`, and `*.test`/`*.spec` patterns are explicit entries and project files regardless of configured source paths, so test-only export usage is resolved. Scripts referenced by `package.json` scripts are also treated as entries, such as `node scripts/build.ts`.
 
 PHP unused checks require a usable `vendor/` directory because the Composer application dependencies and PHPStan analysis context must be installed. Run `composer install` before `code-quality check`; in reusable CI, use the `setup` input, for example `setup: composer install`. The gate reports this prerequisite directly when it is missing.
+
+PHPStan dead-code findings use the key shape `<file> | dead-code | <anchor>#<identifier>#<member>`, where `<member>` is extracted from the diagnostic’s fully qualified `FQN::member` token (for example, `$locales`, `run`, or `CONSTANT`).
 
 The setup command and tools that load consumer code run within the job container. Local containers use the image's `node` user; GitHub container jobs use root because GitHub Actions owns the mounted workspace as root.
 

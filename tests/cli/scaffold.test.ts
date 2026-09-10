@@ -31,6 +31,7 @@ function config(): ResolvedConfig {
     exclude: [],
     disabled: [],
     architecture: {},
+    notices: [],
     configHash: "a".repeat(64),
   };
 }
@@ -41,6 +42,11 @@ afterEach(() => {
 });
 
 describe("consumer scaffold", () => {
+  it("renders a valid empty configuration when no languages resolve", () => {
+    const parsed = parse(renderConsumerConfig({ ...config(), languages: [], paths: {} }));
+    expect(consumerConfigSchema.parse(parsed)).toEqual({});
+  });
+
   it("renders schema-compatible languages and concrete paths", () => {
     const parsed = parse(renderConsumerConfig(config()));
     expect(consumerConfigSchema.parse(parsed)).toMatchObject({

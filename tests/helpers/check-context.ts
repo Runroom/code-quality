@@ -18,6 +18,7 @@ export function checkContext(
       exclude: [],
       disabled: [],
       architecture: {},
+      notices: [],
       configHash: "a".repeat(64),
     },
     language,

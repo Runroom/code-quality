@@ -43,12 +43,34 @@ describe("detectLanguages", () => {
   it("returns no languages without manifests", () => {
     withRoot([], [], (root) => expect(detectLanguages(root)).toEqual([]));
   });
+
+  it("detects web sources without a manifest", () => {
+    withRoot(["templates/page.html", "assets/site.scss"], [], (root) => {
+      expect(detectLanguages(root)).toEqual(["web"]);
+    });
+  });
+
+  it("does not detect web sources outside the default roots", () => {
+    withRoot(["views/page.twig"], [], (root) => expect(detectLanguages(root)).toEqual([]));
+  });
 });
 
 describe("defaultPaths", () => {
   it("returns existing PHP source roots in order", () => {
     withRoot([], ["src", "lib"], (root) => {
       expect(defaultPaths(root, "php")).toEqual(["src", "lib"]);
+    });
+  });
+
+  it("returns src and assets as TypeScript source roots", () => {
+    withRoot([], ["src", "assets"], (root) => {
+      expect(defaultPaths(root, "ts")).toEqual(["src", "assets"]);
+    });
+  });
+
+  it("returns templates and assets as web source roots", () => {
+    withRoot([], ["templates", "assets"], (root) => {
+      expect(defaultPaths(root, "web")).toEqual(["templates", "assets"]);
     });
   });
 });

@@ -1,4 +1,5 @@
 import {
+  existsSync,
   mkdtempSync,
   readFileSync,
   readdirSync,
@@ -136,6 +137,18 @@ describe("CLI parser and summary failures", () => {
 });
 
 describe("CLI gate aggregation", () => {
+  it("records an adapter exception and continues with remaining adapters", async () => {
+    const root = consumer();
+    const broken = fakeAdapter({ id: "ts-broken" });
+    broken.parse = async () => { throw new Error("invalid JSON"); };
+    const command = deps(root, [broken, fakeAdapter({ id: "ts-after" })]);
+
+    expect(await runCli(["node", "code-quality", "check", "--initialize"], command)).toBe(1);
+    expect(errors.join(" ")).toContain("ts-broken: invalid JSON");
+    expect(outputs.join(" ")).toContain("ts-after");
+    expect(existsSync(join(root, "quality/ts-after-baseline.json"))).toBe(true);
+  });
+
   it("keeps every update baseline unchanged when a later adapter regresses", async () => {
     const root = consumer();
     const initial = deps(root, [

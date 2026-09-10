@@ -12,6 +12,7 @@ const FORMATS: Record<Language, string[]> = {
   ts: ["typescript", "tsx", "javascript", "jsx"],
   php: ["php"],
   python: ["python"],
+  web: ["twig", "html", "css", "scss", "less"],
 };
 
 const reportSchema = z.looseObject({

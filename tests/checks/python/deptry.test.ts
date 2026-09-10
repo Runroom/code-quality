@@ -36,6 +36,8 @@ describe("deptry synthetic parser", () => {
     expect(BUILTIN_EXCLUSIONS.map(deptryExcludeRegex)).toEqual([
       "(^|/)node_modules(/|$)", "(^|/)vendor(/|$)", "(^|/)\\.venv(/|$)",
       "(^|/)dist(/|$)", "(^|/)artifacts(/|$)",
+      "(^|/)public/build(/|$)", "(^|/)[^/]*\\.min\\.js$",
+      "(^|/)[^/]*\\.min\\.css$", "(^|/)var(/|$)",
     ]);
   });
 

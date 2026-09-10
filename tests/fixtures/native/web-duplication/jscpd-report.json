@@ -1,0 +1,121 @@
+{
+  "duplicates": [
+    {
+      "firstFile": {
+        "end": 12,
+        "endLoc": {
+          "column": 1,
+          "line": 12,
+          "position": 300
+        },
+        "name": "other.scss",
+        "start": 1,
+        "startLoc": {
+          "column": 14,
+          "line": 1,
+          "position": 14
+        }
+      },
+      "format": "scss",
+      "fragment": ".feature-tile {\n  display: grid;\n  grid-template-columns: 1fr;\n  gap: 1rem;\n  padding: 1.5rem;\n  border: 1px solid #d7dce5;\n  border-radius: 0.75rem;\n  background: #ffffff;\n  color: #172033;\n  box-shadow: 0 0.25rem 1rem rgb(23 32 51 / 8%);\n  transition: transform 150ms ease, box-shadow 150ms ease;\n}",
+      "isNew": true,
+      "kind": "exact",
+      "lines": 12,
+      "secondFile": {
+        "end": 12,
+        "endLoc": {
+          "column": 1,
+          "line": 12,
+          "position": 300
+        },
+        "name": "styles.scss",
+        "start": 1,
+        "startLoc": {
+          "column": 14,
+          "line": 1,
+          "position": 14
+        }
+      },
+      "tokens": 83
+    },
+    {
+      "firstFile": {
+        "end": 18,
+        "endLoc": {
+          "column": 14,
+          "line": 18,
+          "position": 714
+        },
+        "name": "page-a.twig",
+        "start": 2,
+        "startLoc": {
+          "column": 17,
+          "line": 2,
+          "position": 48
+        }
+      },
+      "format": "twig",
+      "fragment": "{% block content %}\n  <section class=\"feature-grid\">\n    <header class=\"feature-grid__header\">\n      <p class=\"feature-grid__eyebrow\">Featured services</p>\n      <h2 class=\"feature-grid__title\">Build better products</h2>\n    </header>\n    <div class=\"feature-grid__items\">\n      {% for feature in features %}\n        <article class=\"feature-card\" data-feature-id=\"{{ feature.id }}\">\n          <h3 class=\"feature-card__title\">{{ feature.title }}</h3>\n          <p class=\"feature-card__description\">{{ feature.description }}</p>\n          <a class=\"feature-card__link\" href=\"{{ feature.url }}\">Learn more</a>\n        </article>\n      {% endfor %}\n    </div>\n  </section>\n{% endblock %}",
+      "isNew": true,
+      "kind": "exact",
+      "lines": 17,
+      "secondFile": {
+        "end": 18,
+        "endLoc": {
+          "column": 14,
+          "line": 18,
+          "position": 713
+        },
+        "name": "page-b.twig",
+        "start": 2,
+        "startLoc": {
+          "column": 14,
+          "line": 2,
+          "position": 47
+        }
+      },
+      "tokens": 141
+    }
+  ],
+  "statistics": {
+    "detectionDate": "2026-09-10T10:16:31.084Z",
+    "formats": {
+      "scss": {
+        "clones": 1,
+        "duplicatedLines": 11,
+        "duplicatedTokens": 83,
+        "lines": 24,
+        "newClones": 1,
+        "newDuplicatedLines": 11,
+        "percentage": 45.83333333333333,
+        "percentageTokens": 47.701149425287355,
+        "sources": 2,
+        "tokens": 174
+      },
+      "twig": {
+        "clones": 1,
+        "duplicatedLines": 16,
+        "duplicatedTokens": 141,
+        "lines": 36,
+        "newClones": 1,
+        "newDuplicatedLines": 16,
+        "percentage": 44.44444444444444,
+        "percentageTokens": 46.688741721854306,
+        "sources": 2,
+        "tokens": 302
+      }
+    },
+    "total": {
+      "clones": 2,
+      "duplicatedLines": 27,
+      "duplicatedTokens": 224,
+      "lines": 60,
+      "newClones": 2,
+      "newDuplicatedLines": 27,
+      "percentage": 45.0,
+      "percentageTokens": 47.05882352941176,
+      "sources": 4,
+      "tokens": 476
+    }
+  }
+}

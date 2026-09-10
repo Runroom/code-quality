@@ -32,6 +32,7 @@ describe("runAdapter artifacts", () => {
       exclude: [],
       disabled: [],
       architecture: {},
+      notices: [],
       configHash: "a".repeat(64),
     }, deps);
   });

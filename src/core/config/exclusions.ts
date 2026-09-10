@@ -18,6 +18,10 @@ export const BUILTIN_EXCLUSIONS = [
   "**/.venv/**",
   "**/dist/**",
   "**/artifacts/**",
+  "**/public/build/**",
+  "**/*.min.js",
+  "**/*.min.css",
+  "**/var/**",
 ] as const;
 
 export function isExcluded(file: string, patterns: readonly string[]): boolean {

@@ -61,6 +61,12 @@ export const MUTATIONS = [
     content: "def extra(a, b, c, d, e):\n    return [a, b, c, d, e]\n",
     expect: "regressions",
   },
+  {
+    fixture: "web-project",
+    file: "templates/page-c.twig",
+    copyFrom: "templates/page-a.twig",
+    expect: "regressions",
+  },
 ] as const satisfies readonly Mutation[];
 
 export interface ResultRow {
@@ -88,7 +94,7 @@ interface DependencyInstallPlan {
   command: readonly string[];
 }
 
-const FIXTURES = ["ts-project", "php-project", "python-project"] as const;
+const FIXTURES = ["ts-project", "php-project", "python-project", "web-project"] as const;
 const MAX_BUFFER = 256 * 1024 * 1024;
 
 function normalizeRelative(path: string): string {

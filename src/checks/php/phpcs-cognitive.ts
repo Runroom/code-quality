@@ -1,6 +1,6 @@
 import { join } from "node:path";
 
-import { POLICY, xml } from "../shared/kit.ts";
+import { parseJsonOutput, POLICY, xml } from "../shared/kit.ts";
 import { phpcsCommand, phpcsFindings, phpcsRuleset } from "./phpcs-shared.ts";
 import type { CheckAdapter } from "../shared/kit.ts";
 
@@ -26,5 +26,5 @@ export const phpcsCognitiveAdapter: CheckAdapter = {
   applicability: () => ({ kind: "run" }),
   configFiles: () => [{ path: "phpcs-cognitive.xml", content: cognitiveRuleset() }],
   command: (ctx) => phpcsCommand(ctx, join(ctx.tempDir, "phpcs-cognitive.xml")),
-  parse: (ctx, result) => phpcsFindings(ctx, JSON.parse(result.stdout) as unknown, COGNITIVE_RULE),
+  parse: (ctx, result) => phpcsFindings(ctx, parseJsonOutput(result.stdout, "phpcs"), COGNITIVE_RULE),
 };

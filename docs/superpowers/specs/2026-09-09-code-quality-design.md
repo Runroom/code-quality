@@ -134,10 +134,11 @@ The consumer configuration is YAML with only the following fields. An omitted fi
 
 | Field | Type | Default and constraints |
 | --- | --- | --- |
-| `languages` | list of `ts`, `php`, `python` | All languages detected from manifests; this field is an explicit override and may include a subset of detected languages |
-| `paths.ts` | list of repository-relative directory/file globs | Existing `src/` when TS/JS is detected; every configured path must be repository-relative |
+| `languages` | list of `ts`, `php`, `python`, `web` | Languages detected from manifests or conventional web roots; this field is an explicit override and may include a subset of detected languages |
+| `paths.ts` | list of repository-relative directory/file globs | Existing `src/` and `assets/` when TS/JS is detected; every configured path must be repository-relative |
 | `paths.php` | list of repository-relative directory/file globs | Existing `src/`, plus existing `lib/` and `app/` when PHP is detected |
 | `paths.python` | list of repository-relative directory/file globs | Existing `src/` when Python is detected |
+| `paths.web` | list of repository-relative directory/file globs | Existing `templates/` and `assets/` containing supported web files |
 | `exclude` | list of repository-relative glob patterns | No consumer exclusions; built-in test exclusions apply to every blocking check |
 | `checks.disabled` | list of objects `{ id, reason }` | No checks disabled. `id` must be a registered check ID and `reason` must be non-empty prose |
 | `architecture.ts.rulesFile` | repository-relative file path | Conventional `.dependency-cruiser.cjs` when it exists; otherwise architecture is skipped |
@@ -197,9 +198,11 @@ Without `languages`, detection examines manifests at the consumer repository roo
 | `composer.json` | `php` |
 | `pyproject.toml` or `setup.py` | `python` |
 
-All matching manifests are enabled, so a repository may run more than one language’s checks. `.code-quality.yml.languages` is authoritative when present: it selects exactly the listed language adapters, subject to each language having a valid configured source path. Detection does not infer a language from arbitrary file extensions and does not install dependencies.
+All matching manifests are enabled, so a repository may run more than one language’s checks. `.code-quality.yml.languages` is authoritative when present: it selects exactly the listed language adapters, subject to each language having a valid configured source path. Apart from supported web extensions in the conventional web roots, detection does not infer a language from arbitrary file extensions and does not install dependencies.
 
-The default source roots are `src/` for each detected language, with PHP adding `lib/` and `app/` when those directories exist. Explicit `paths` replaces the default for that language. A missing manifest results in a clear configuration failure; a configured language without a usable source root fails before tools run. Generated files, dependencies, virtual environments, and consumer exclusions are removed from each tool’s candidate set according to the applicable tool configuration.
+The default source roots are `src/` and `assets/` for TS/JS, `src/`, `lib/`, and `app/` for PHP, `src/` for Python, and `templates/` and `assets/` for web. Explicit `paths` replaces the default for that language. A configured language without a usable source root fails before tools run. Generated files, dependencies, virtual environments, and consumer exclusions are removed from each tool’s candidate set according to the applicable tool configuration.
+
+An auto-detected manifest language whose default roots contain no source files is omitted with a CLI notice, while a language or `paths.<language>` entry configured explicitly remains a hard failure. Independently of manifests, `.twig`, `.html`, `.css`, `.scss`, and `.less` files under `templates/` or `assets/` detect `web`; TS/JS defaults include both `src/` and `assets/`.
 
 Architecture is separately detected from the presence of `.dependency-cruiser.cjs`, `deptrac.yaml`, or `.importlinter`, or from the corresponding explicit `architecture.*.rulesFile`. Its absence is a deliberate skip, not a passing empty report and not a baseline entry.
 
@@ -218,6 +221,7 @@ The following thresholds are Runroom policy and are fixed in the image.
 | `cognitive` | PHP | slevomat/coding-standard 8.31.1 through PHPCS | `SlevomatCodingStandard.Complexity.Cognitive` maxComplexity 15 |
 | `cognitive` | Python | complexipy 8.0.1 | The Runroom cognitive-complexity policy threshold is 15 |
 | `duplication` | TS/JS, PHP, Python | jscpd 5.2.0 | Mild mode, minimum 50 tokens and 5 lines; tests are excluded from every blocking check |
+| `duplication` | Web | jscpd 5.2.0 | The only web adapter; formats `twig`, `html`, `css`, `scss`, and `less`, with the same 50-token/5-line policy |
 | `unused` | TS/JS | knip 6.35.1 | Unused files, exports, and dependencies |
 | `unused` | PHP | composer-unused 0.9.6, composer-require-checker 4.24.0, phpstan 2.2.13 with shipmonk/dead-code-detector 1.4.0 | Unused packages, invalid/unused Composer requirements, and dead code according to the three tools |
 | `unused` | Python | vulture 2.16 and deptry 0.25.1 | Unused code and dependency problems |

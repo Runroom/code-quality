@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { assertInScope, FindingsBuilder } from "../shared/kit.ts";
+import { assertInScope, FindingsBuilder, parseJsonOutput } from "../shared/kit.ts";
 import type { CheckAdapter, CheckContext, Findings } from "../shared/kit.ts";
 
 const reportSchema = z.looseObject({
@@ -50,6 +50,6 @@ export const dependencyCruiserAdapter: CheckAdapter = {
     };
   },
   parse: (ctx, result) => Promise.resolve(
-    dependencyCruiserFindings(ctx, JSON.parse(result.stdout) as unknown),
+    dependencyCruiserFindings(ctx, parseJsonOutput(result.stdout, "depcruise")),
   ),
 };

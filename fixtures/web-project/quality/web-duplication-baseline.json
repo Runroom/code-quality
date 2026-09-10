@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "tool": "jscpd@5.2.0",
+  "configHash": "b9e9fef549a655ef9fcdfcf37d6b83a203d2fe8ad0eba626c9e98a748a46f8b3",
+  "findings": {
+    "49b1e091be111932": 1,
+    "bf23efa9a8a4e58b": 1
+  }
+}

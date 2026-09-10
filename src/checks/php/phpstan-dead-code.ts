@@ -2,7 +2,7 @@ import { join } from "node:path";
 
 import { z } from "zod";
 
-import { addAnchoredFinding, excludeGlobs, fail, FindingsBuilder, relativizeFrom } from "../shared/kit.ts";
+import { addAnchoredFinding, excludeGlobs, fail, FindingsBuilder, parseJsonOutput, relativizeFrom } from "../shared/kit.ts";
 import { requireVendor } from "./vendor.ts";
 import type { CheckAdapter, CheckContext, Findings } from "../shared/kit.ts";
 
@@ -16,6 +16,8 @@ const reportSchema = z.looseObject({
   })),
   errors: z.array(z.string()),
 });
+
+const DEAD_CODE_MEMBER = /^(?:Unused|Property|Constant|Method|Enum case)?\s*(\S+)::(\$?\w+)/u;
 
 function neonList(values: readonly string[]): string {
   return values.map((value) => `            - ${JSON.stringify(value)}`).join("\n");
@@ -49,12 +51,16 @@ async function addMessages(
 ): Promise<void> {
   const file = relativizeFrom(ctx.root, nativeFile);
   for (const message of messages) {
-    if (!/^shipmonk\.dead[A-Z][A-Za-z]*$/u.test(message.identifier)) {
+    if (!/^shipmonk\.dead[A-Za-z]+(\.[A-Za-z]+)*$/u.test(message.identifier)) {
       return fail(`Unbaselined PHPStan diagnostic ${message.identifier}`);
+    }
+    const member = DEAD_CODE_MEMBER.exec(message.message)?.[2];
+    if (member === undefined) {
+      return fail(`Unbaselined PHPStan diagnostic shape: ${message.message}`);
     }
     await addAnchoredFinding(ctx, findings, {
       file, rule: "dead-code", value: 1, line: message.line, blockMode: false,
-      anchorSuffix: `#${message.identifier}`,
+      anchorSuffix: `#${message.identifier}#${member}`,
     });
   }
 }
@@ -71,5 +77,5 @@ export const phpstanDeadCodeAdapter: CheckAdapter = {
     cwd: ctx.root,
     exitCodes: [0, 1],
   }),
-  parse: (ctx, result) => phpstanFindings(ctx, JSON.parse(result.stdout) as unknown),
+  parse: (ctx, result) => phpstanFindings(ctx, parseJsonOutput(result.stdout, "phpstan")),
 };

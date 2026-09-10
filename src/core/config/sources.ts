@@ -8,6 +8,7 @@ export const LANGUAGE_EXTENSIONS: Readonly<Record<Language, readonly string[]>> 
   ts: [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"],
   php: [".php"],
   python: [".py"],
+  web: [".twig", ".html", ".css", ".scss", ".less"],
 };
 
 function portable(path: string): string {

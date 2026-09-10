@@ -3,8 +3,12 @@ import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { composerUnusedFindings } from "../../../src/checks/php/composer-unused.ts";
+import {
+  composerUnusedAdapter,
+  composerUnusedFindings,
+} from "../../../src/checks/php/composer-unused.ts";
 import { requireCheckerFindings } from "../../../src/checks/php/require-checker.ts";
+import { checkContext } from "../../helpers/check-context.ts";
 
 describe("composer tool synthetic parsers", () => {
   it("rejects strict composer-unused extra keys", () => {
@@ -13,6 +17,19 @@ describe("composer tool synthetic parsers", () => {
 
   it("rejects non-string composer-unused package entries", () => {
     expect(() => composerUnusedFindings({ "unused-packages": [{ name: "psr/log" }] })).toThrow();
+  });
+
+  it("accepts a Symfony warning block before composer-unused JSON", async () => {
+    const json = readFileSync(
+      resolve("tests/fixtures/native/php-unused-composer-unused/stdout.json"),
+      "utf8",
+    );
+    const findings = await composerUnusedAdapter.parse(checkContext("/r", "php"), {
+      stdout: ` [WARNING] composer.json[autoload][psr-4] contains an empty namespace\n${json}`,
+      stderr: "",
+      exitCode: 0,
+    });
+    expect(Object.keys(findings)).toHaveLength(2);
   });
 
   it("rejects a require-checker version mismatch", () => {

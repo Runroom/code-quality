@@ -20,6 +20,15 @@ describe("isExcluded", () => {
     expect(isExcluded("vendor/x.php", BUILTIN_EXCLUSIONS)).toBe(true);
   });
 
+  it.each([
+    "public/build/app.js",
+    "assets/app.min.js",
+    "assets/site.min.css",
+    "var/cache/dev/container.php",
+  ])("excludes built-in generated path %s", (file) => {
+    expect(isExcluded(file, BUILTIN_EXCLUSIONS)).toBe(true);
+  });
+
   it("matches dot directories", () => {
     expect(isExcluded(".hidden/x.ts", ["**/.hidden/**"])).toBe(true);
   });

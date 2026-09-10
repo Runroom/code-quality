@@ -44,6 +44,7 @@ function context(root: string, language: "ts" | "php" | "python"): CheckContext 
       exclude: [],
       disabled: [],
       architecture: {},
+      notices: [],
       configHash: "a".repeat(64),
     },
     readSource: () => "",

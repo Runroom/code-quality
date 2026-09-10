@@ -2,7 +2,7 @@ import { join } from "node:path";
 
 import { z } from "zod";
 
-import { addAnchoredFinding, excludeGlobs, extractMeasurement, fail, FindingsBuilder, POLICY, relativizeFrom } from "../shared/kit.ts";
+import { addAnchoredFinding, excludeGlobs, extractMeasurement, fail, FindingsBuilder, parseJsonOutput, POLICY, relativizeFrom } from "../shared/kit.ts";
 import type { CheckAdapter, CheckContext, Findings } from "../shared/kit.ts";
 
 const METRICS: Record<string, RegExp> = {
@@ -62,5 +62,5 @@ export const ruffAdapter: CheckAdapter = {
       ...ctx.paths],
     exitCodes: [0],
   }),
-  parse: (ctx, result) => ruffFindings(ctx, JSON.parse(result.stdout) as unknown),
+  parse: (ctx, result) => ruffFindings(ctx, parseJsonOutput(result.stdout, "ruff")),
 };

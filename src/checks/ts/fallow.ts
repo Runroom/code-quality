@@ -2,7 +2,7 @@ import { join } from "node:path";
 
 import { z } from "zod";
 
-import { excludeGlobs, fail, FindingsBuilder, isInScope, lineColumnToByteOffset, POLICY, relativize } from "../shared/kit.ts";
+import { excludeGlobs, fail, FindingsBuilder, isInScope, lineColumnToByteOffset, parseJsonOutput, POLICY, relativize } from "../shared/kit.ts";
 import type { CheckAdapter, CheckContext, Findings } from "../shared/kit.ts";
 
 const fallowSchema = z.looseObject({
@@ -67,5 +67,5 @@ export const fallowAdapter: CheckAdapter = {
     env: { FALLOW_TELEMETRY_DISABLED: "1" },
     exitCodes: [0],
   }),
-  parse: (ctx, result) => fallowFindings(ctx, JSON.parse(result.stdout) as unknown),
+  parse: (ctx, result) => fallowFindings(ctx, parseJsonOutput(result.stdout, "fallow")),
 };

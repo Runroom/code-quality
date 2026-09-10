@@ -2,7 +2,7 @@ import { join } from "node:path";
 
 import { z } from "zod";
 
-import { addAnchoredFinding, excludeGlobs, extractMeasurement, fail, FindingsBuilder, POLICY, relativizeFrom, xml } from "../shared/kit.ts";
+import { addAnchoredFinding, excludeGlobs, extractMeasurement, fail, FindingsBuilder, parseJsonOutput, POLICY, relativizeFrom, xml } from "../shared/kit.ts";
 import type { CheckAdapter, CheckContext, Findings } from "../shared/kit.ts";
 
 const phpmdSchema = z.looseObject({
@@ -99,5 +99,5 @@ export const phpmdAdapter: CheckAdapter = {
       "--exclude", excludeGlobs(ctx.config, true).join(","), "--ignore-violations-on-exit"],
     exitCodes: [0],
   }),
-  parse: (ctx, result) => phpmdFindings(ctx, JSON.parse(result.stdout) as unknown),
+  parse: (ctx, result) => phpmdFindings(ctx, parseJsonOutput(result.stdout, "phpmd")),
 };

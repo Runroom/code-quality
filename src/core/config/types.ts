@@ -12,5 +12,6 @@ export interface ResolvedConfig {
   exclude: string[];
   disabled: Array<{ id: LogicalCheckId; reason: string }>;
   architecture: Partial<Record<Language, ArchitectureSelection>>;
+  notices: string[];
   configHash: string;
 }

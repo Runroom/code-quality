@@ -2,7 +2,7 @@ import { posix } from "node:path";
 
 import { z } from "zod";
 
-export const LANGUAGES = ["ts", "php", "python"] as const;
+export const LANGUAGES = ["ts", "php", "python", "web"] as const;
 export type Language = (typeof LANGUAGES)[number];
 
 export const LOGICAL_IDS = [
@@ -30,6 +30,7 @@ const pathsSchema = z.strictObject({
   ts: z.array(relativePath).min(1).optional(),
   php: z.array(relativePath).min(1).optional(),
   python: z.array(relativePath).min(1).optional(),
+  web: z.array(relativePath).min(1).optional(),
 });
 
 const disabledCheckSchema = z.strictObject({

@@ -2,7 +2,7 @@ import { join } from "node:path";
 
 import { z } from "zod";
 
-import { addAnchoredFinding, excludeGlobs, extractMeasurement, fail, FindingsBuilder, POLICY, relativize } from "../shared/kit.ts";
+import { addAnchoredFinding, excludeGlobs, extractMeasurement, fail, FindingsBuilder, parseJsonOutput, POLICY, relativize } from "../shared/kit.ts";
 import type { CheckAdapter, CheckContext, Findings } from "../shared/kit.ts";
 import type { ResolvedConfig } from "../../core/config/types.ts";
 
@@ -87,5 +87,5 @@ export const oxlintAdapter: CheckAdapter = {
       "--format", "json", ...ctx.paths],
     exitCodes: [0],
   }),
-  parse: (ctx, result) => oxlintFindings(ctx, JSON.parse(result.stdout) as unknown),
+  parse: (ctx, result) => oxlintFindings(ctx, parseJsonOutput(result.stdout, "oxlint")),
 };

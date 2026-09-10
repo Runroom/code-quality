@@ -12,6 +12,7 @@ import type { GateOutcome } from "../../core/gate/types.ts";
 import type { Mode } from "../../core/gate/state.ts";
 import type { CheckAdapter } from "../../core/types.ts";
 import { writeSnapshot } from "../../core/snapshot.ts";
+import type { ResolvedConfig } from "../../core/config/types.ts";
 
 function summaryFor(outcome: GateOutcome, check: string): string {
   return summaryMarkdown({
@@ -45,6 +46,12 @@ function failedOutcome(entry: { id: string; message: string }): GateOutcome {
   return { id: entry.id, ok: false, count: 0, regressions: [], stale: [], message: entry.message };
 }
 
+function adapterFailure(adapter: CheckAdapter, error: unknown): GateOutcome {
+  const message = error instanceof Error ? error.message : String(error);
+  const prefixed = message.startsWith(`${adapter.id}:`) ? message : `${adapter.id}: ${message}`;
+  return failedOutcome({ id: adapter.id, message: prefixed });
+}
+
 function flushPendingWrites(outcomes: readonly GateOutcome[]): void {
   if (!outcomes.every((outcome) => outcome.ok)) return;
   for (const outcome of outcomes) {
@@ -56,6 +63,7 @@ function flushPendingWrites(outcomes: readonly GateOutcome[]): void {
 
 interface CheckOptions {
   keepExisting?: boolean;
+  config?: ResolvedConfig;
 }
 
 function keepExistingBaseline(adapter: CheckAdapter, root: string, deps: CliDeps): boolean {
@@ -65,13 +73,27 @@ function keepExistingBaseline(adapter: CheckAdapter, root: string, deps: CliDeps
   return true;
 }
 
+async function executeAdapter(
+  adapter: CheckAdapter,
+  config: ResolvedConfig,
+  mode: Mode,
+  run: Parameters<typeof executeGate>[3],
+): Promise<GateOutcome> {
+  try {
+    return await executeGate(adapter, config, mode, run);
+  } catch (error) {
+    return adapterFailure(adapter, error);
+  }
+}
+
 export async function checkCommand(
   ids: string[],
   mode: Mode,
   deps: CliDeps,
   options: CheckOptions = {},
 ): Promise<number> {
-  const config = loadConfig(deps.cwd);
+  const config = options.config ?? loadConfig(deps.cwd);
+  for (const notice of config.notices) deps.stdout(`Notice: ${notice}\n`);
   const registry = mode === "initialize" && options.keepExisting
     ? deps.registry.filter((adapter) => {
       if (!config.languages.includes(adapter.language)) return true;
@@ -87,7 +109,7 @@ export async function checkCommand(
     printOutcome(outcome, deps, "architecture", true);
   }
   for (const adapter of selection.adapters) {
-    const outcome = await executeGate(adapter, config, mode, run);
+    const outcome = await executeAdapter(adapter, config, mode, run);
     outcomes.push(outcome);
     printOutcome(outcome, deps, adapter.check);
   }
