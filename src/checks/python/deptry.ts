@@ -61,7 +61,7 @@ export const deptryAdapter: CheckAdapter = {
   command: (ctx) => ({
     bin: "deptry",
     args: [...ctx.paths, "--json-output", toolOutput(ctx, "deptry.json").path, "--no-ansi",
-      ...excludeGlobs(ctx.config, false).flatMap((glob) => [
+      ...excludeGlobs(ctx.config, true).flatMap((glob) => [
         "--exclude", deptryExcludeRegex(glob),
       ])],
     exitCodes: [0, 1],

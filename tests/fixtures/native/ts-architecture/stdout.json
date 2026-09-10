@@ -47,6 +47,13 @@
       "valid": true
     },
     {
+      "source": "src/ignored.test.ts",
+      "dependencies": [],
+      "dependents": [],
+      "orphan": true,
+      "valid": true
+    },
+    {
       "source": "src/index.ts",
       "dependencies": [
         {
@@ -131,7 +138,7 @@
     "warn": 0,
     "info": 0,
     "ignore": 0,
-    "totalCruised": 9,
+    "totalCruised": 10,
     "totalDependenciesCruised": 2,
     "optionsUsed": {
       "baseDir": "/work",

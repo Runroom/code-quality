@@ -58,7 +58,7 @@ export const ruffAdapter: CheckAdapter = {
   command: (ctx) => ({
     bin: "ruff",
     args: ["check", "--config", join(ctx.tempDir, "ruff.toml"), "--output-format", "json",
-      "--no-cache", "--exit-zero", "--exclude", excludeGlobs(ctx.config, false).join(","),
+      "--no-cache", "--exit-zero", "--exclude", excludeGlobs(ctx.config, true).join(","),
       ...ctx.paths],
     exitCodes: [0],
   }),

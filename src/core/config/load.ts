@@ -64,7 +64,10 @@ function ensureSourceFiles(
 
 function noDefaultPath(language: Language): never {
   const candidates = language === "php" ? "src, lib, app" : "src";
-  return fail(`${language}: no usable source path (${candidates})`);
+  return fail(
+    `${language}: no usable source path (${candidates}). Create .code-quality.yml with `
+      + `paths.${language} listing your source roots, e.g. paths: { ${language}: [app, lib] }`,
+  );
 }
 
 function resolvePaths(

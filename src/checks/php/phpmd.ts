@@ -96,7 +96,7 @@ export const phpmdAdapter: CheckAdapter = {
   command: (ctx) => ({
     bin: "phpmd",
     args: [ctx.paths.join(","), "json", join(ctx.tempDir, "phpmd-ruleset.xml"),
-      "--exclude", excludeGlobs(ctx.config, false).join(","), "--ignore-violations-on-exit"],
+      "--exclude", excludeGlobs(ctx.config, true).join(","), "--ignore-violations-on-exit"],
     exitCodes: [0],
   }),
   parse: (ctx, result) => phpmdFindings(ctx, JSON.parse(result.stdout) as unknown),

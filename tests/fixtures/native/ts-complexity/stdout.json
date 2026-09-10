@@ -7,8 +7,8 @@
 {"message": "Blocks are nested too deeply (4). Maximum allowed is 3.","code": "eslint(max-depth)","severity": "warning","url": "https://oxc.rs/docs/guide/usage/linter/rules/eslint/max-depth.html","help": "Consider refactoring your code.","filename": "src/complexity.ts","labels": [{"span": {"offset": 470,"length": 23,"line": 17,"column": 9}}]},
 {"message": "Too many nested callbacks (4). Maximum allowed is 3.","code": "eslint(max-nested-callbacks)","severity": "warning","url": "https://oxc.rs/docs/guide/usage/linter/rules/eslint/max-nested-callbacks.html","help": "Reduce nesting with promises or refactoring your code.","filename": "src/complexity.ts","labels": [{"span": {"offset": 600,"length": 22,"line": 24,"column": 20}}]}],
               "number_of_files": 9,
-              "number_of_rules": 105,
+              "number_of_rules": 5,
               "threads_count": 11,
-              "start_time": 0.017291205
+              "start_time": 0.012747541
             }
             

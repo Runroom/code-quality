@@ -60,7 +60,7 @@ function knipConfig(ctx: CheckContext): string {
       ...ctx.paths.map((path) => `${path}/**/*.{ts,tsx,js,jsx,mjs,cjs}`),
       ...TEST_ENTRIES,
     ],
-    ignore: excludeGlobs(ctx.config, false),
+    ignore: excludeGlobs(ctx.config, true),
     ignoreDependencies: [],
     vite: false,
     vitest: false,

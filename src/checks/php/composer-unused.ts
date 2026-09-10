@@ -24,7 +24,7 @@ export function composerUnusedFindings(input: unknown): Findings {
 }
 
 function topLevelExcludes(ctx: CheckContext): string[] {
-  const directories = excludeGlobs(ctx.config, false)
+  const directories = excludeGlobs(ctx.config, true)
     .map((glob) => glob.replace(/^\*\*\//u, "").split("/")[0])
     .filter((value): value is string => value !== undefined && value.length > 0
       && !value.includes("*"));

@@ -1,4 +1,4 @@
-export const POLICY_VERSION = "2026-09-10.3";
+export const POLICY_VERSION = "2026-09-10.4";
 
 export const POLICY = {
   complexity: 10,
