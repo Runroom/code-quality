@@ -1,0 +1,7 @@
+[project]
+name = "demo-app"
+version = "0.1.0"
+dependencies = ["requests>=2", "httpx>=0.27"]
+
+[tool.setuptools.packages.find]
+where = ["src"]

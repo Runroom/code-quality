@@ -1,0 +1,71 @@
+{
+  "duplicates": [
+    {
+      "firstFile": {
+        "end": 59,
+        "endLoc": {
+          "column": 14,
+          "line": 59,
+          "position": 924
+        },
+        "name": "demo_app/complex.py",
+        "start": 21,
+        "startLoc": {
+          "column": 8,
+          "line": 21,
+          "position": 344
+        }
+      },
+      "format": "python",
+      "fragment": "        value += 1\n    value += 1\n    value += 1\n    value += 1\n    value += 1\n    value += 1\n    value += 1\n    value += 1\n    value += 1\n    value += 1\n    value += 1\n    value += 1\n    value += 1\n    value += 1\n    value += 1\n    value += 1\n    value += 1\n    value += 1\n    value += 1\n    value += 1\n    value += 1\n    value += 1\n    value += 1\n    value += 1\n    value += 1\n    value += 1\n    value += 1\n    value += 1\n    value += 1\n    value += 1\n    value += 1\n    value += 1\n    value += 1\n    value += 1\n    value += 1\n    value += 1\n    value += 1\n    value += 1\n    value += 1",
+      "isNew": true,
+      "kind": "exact",
+      "lines": 39,
+      "secondFile": {
+        "end": 60,
+        "endLoc": {
+          "column": 14,
+          "line": 60,
+          "position": 939
+        },
+        "name": "demo_app/complex.py",
+        "start": 22,
+        "startLoc": {
+          "column": 4,
+          "line": 22,
+          "position": 359
+        }
+      },
+      "tokens": 156
+    }
+  ],
+  "statistics": {
+    "detectionDate": "2026-09-09T22:14:33.947Z",
+    "formats": {
+      "python": {
+        "clones": 1,
+        "duplicatedLines": 38,
+        "duplicatedTokens": 156,
+        "lines": 61,
+        "newClones": 1,
+        "newDuplicatedLines": 38,
+        "percentage": 62.295081967213115,
+        "percentageTokens": 63.41463414634146,
+        "sources": 1,
+        "tokens": 246
+      }
+    },
+    "total": {
+      "clones": 1,
+      "duplicatedLines": 38,
+      "duplicatedTokens": 156,
+      "lines": 61,
+      "newClones": 1,
+      "newDuplicatedLines": 38,
+      "percentage": 62.295081967213115,
+      "percentageTokens": 63.41463414634146,
+      "sources": 1,
+      "tokens": 246
+    }
+  }
+}

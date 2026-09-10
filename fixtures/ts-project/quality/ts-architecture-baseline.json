@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "tool": "depcruise@18.2.0",
+  "configHash": "0ed7718e8ec86f3f9c9238387293f2880c27a554dbd18a4b06d0d380d9203e18",
+  "findings": {
+    "src/ui/view.ts | no-ui-to-db | src/db/repo.ts": 1
+  }
+}

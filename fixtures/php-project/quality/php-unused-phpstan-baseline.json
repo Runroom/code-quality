@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "tool": "phpstan@2.2.13",
+  "configHash": "5c7b32cbb2e7f9598c0c0844f1906c3476cbfc324fd615591c626b6fdbe27320",
+  "findings": {
+    "src/Domain/Entity.php | dead-code | /class:Entity/method:save#shipmonk.deadMethod": 1,
+    "src/Service/Complex.php | dead-code | /class:Complex/method:run#shipmonk.deadMethod": 1,
+    "src/Service/Dead.php | dead-code | /class:Dead/method:alive#shipmonk.deadMethod": 1,
+    "src/Service/Dead.php | dead-code | /class:Dead/method:never#shipmonk.deadMethod": 1,
+    "src/Service/Uses.php | dead-code | /class:Uses/method:composerVersion#shipmonk.deadMethod": 1
+  }
+}

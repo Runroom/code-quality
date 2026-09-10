@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "tool": "oxlint@1.82.0",
+  "configHash": "0ed7718e8ec86f3f9c9238387293f2880c27a554dbd18a4b06d0d380d9203e18",
+  "findings": {
+    "src/cognitive.ts | eslint(max-depth) | /function:nested/if/block/if/block/if/block/if": 4,
+    "src/cognitive.ts | eslint(max-depth) | /function:nested/if/block/if/block/if/block/if/block/if": 5,
+    "src/cognitive.ts | eslint(max-depth) | /function:nested/if/block/if/block/if/block/if/block/if/block/if": 6,
+    "src/complexity.ts | eslint(complexity) | /function:busy": 16,
+    "src/complexity.ts | eslint(max-depth) | /function:busy/if[11]/block/if/block/if/block/if": 4,
+    "src/complexity.ts | eslint(max-lines-per-function) | /function:busy": 89,
+    "src/complexity.ts | eslint(max-nested-callbacks) | /function:busy/function/function/function/function": 4,
+    "src/complexity.ts | eslint(max-params) | /function:busy": 5
+  }
+}

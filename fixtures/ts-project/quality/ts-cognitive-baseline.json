@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "tool": "fallow@3.23.0",
+  "configHash": "0ed7718e8ec86f3f9c9238387293f2880c27a554dbd18a4b06d0d380d9203e18",
+  "findings": {
+    "src/cognitive.ts | cognitive-complexity | /function:nested": 21,
+    "src/complexity.ts | cognitive-complexity | /function:busy": 21
+  }
+}

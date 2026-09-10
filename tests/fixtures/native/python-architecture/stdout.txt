@@ -1,0 +1,25 @@
+
+---------
+Contracts
+---------
+
+Analyzed 8 files, 1 dependencies.
+---------------------------------
+
+Layers BROKEN
+
+Contracts: 0 kept, 1 broken.
+
+
+----------------
+Broken contracts
+----------------
+
+Layers
+------
+
+demo_app.domain is not allowed to import demo_app.infra:
+
+- demo_app.domain.model -> demo_app.infra.db (l.1)
+
+

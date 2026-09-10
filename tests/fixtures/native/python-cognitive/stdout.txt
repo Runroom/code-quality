@@ -1,0 +1,1 @@
+Results saved at /work/artifacts/quality/python-cognitive/complexipy.sarif

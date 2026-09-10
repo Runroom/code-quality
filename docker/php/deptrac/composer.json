@@ -1,0 +1,13 @@
+{
+  "require": {
+    "deptrac/deptrac": "4.7.1"
+  },
+  "config": {
+    "platform": {
+      "php": "8.4.24"
+    },
+    "allow-plugins": {
+      "dealerdirect/phpcodesniffer-composer-installer": true
+    }
+  }
+}

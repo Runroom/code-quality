@@ -1,0 +1,14 @@
+[
+    {
+        "error": {
+            "code": "DEP002",
+            "message": "'requests' defined as a dependency but not used in the codebase"
+        },
+        "module": "requests",
+        "location": {
+            "file": "pyproject.toml",
+            "line": null,
+            "column": null
+        }
+    }
+]

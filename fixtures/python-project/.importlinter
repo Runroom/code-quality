@@ -1,0 +1,9 @@
+[importlinter]
+root_package = demo_app
+
+[importlinter:contract:layers]
+name = Layers
+type = layers
+layers =
+    demo_app.infra
+    demo_app.domain

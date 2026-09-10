@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "tool": "composer-unused@0.9.6",
+  "configHash": "5c7b32cbb2e7f9598c0c0844f1906c3476cbfc324fd615591c626b6fdbe27320",
+  "findings": {
+    "composer.json | unused-package | psr/log": 1,
+    "composer.json | unused-package | symfony/yaml": 1
+  }
+}

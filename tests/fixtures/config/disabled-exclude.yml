@@ -1,0 +1,7 @@
+checks:
+  disabled:
+    - id: architecture
+      reason: No approved dependency-layer rules yet.
+exclude:
+  - "**/generated/**"
+  - "custom/**"

@@ -1,0 +1,71 @@
+{
+  "duplicates": [
+    {
+      "firstFile": {
+        "end": 82,
+        "endLoc": {
+          "column": 21,
+          "line": 82,
+          "position": 1544
+        },
+        "name": "Service/Complex.php",
+        "start": 54,
+        "startLoc": {
+          "column": 8,
+          "line": 54,
+          "position": 915
+        }
+      },
+      "format": "php",
+      "fragment": "        $result += 0;\n        $result += 0;\n        $result += 0;\n        $result += 0;\n        $result += 0;\n        $result += 0;\n        $result += 0;\n        $result += 0;\n        $result += 0;\n        $result += 0;\n        $result += 0;\n        $result += 0;\n        $result += 0;\n        $result += 0;\n        $result += 0;\n        $result += 0;\n        $result += 0;\n        $result += 0;\n        $result += 0;\n        $result += 0;\n        $result += 0;\n        $result += 0;\n        $result += 0;\n        $result += 0;\n        $result += 0;\n        $result += 0;\n        $result += 0;\n        $result += 0;\n        $result += 0;",
+      "isNew": true,
+      "kind": "exact",
+      "lines": 29,
+      "secondFile": {
+        "end": 83,
+        "endLoc": {
+          "column": 21,
+          "line": 83,
+          "position": 1566
+        },
+        "name": "Service/Complex.php",
+        "start": 55,
+        "startLoc": {
+          "column": 8,
+          "line": 55,
+          "position": 937
+        }
+      },
+      "tokens": 174
+    }
+  ],
+  "statistics": {
+    "detectionDate": "2026-09-09T21:47:56.396Z",
+    "formats": {
+      "php": {
+        "clones": 1,
+        "duplicatedLines": 28,
+        "duplicatedTokens": 174,
+        "lines": 86,
+        "newClones": 1,
+        "newDuplicatedLines": 28,
+        "percentage": 32.55813953488372,
+        "percentageTokens": 41.9277108433735,
+        "sources": 1,
+        "tokens": 415
+      }
+    },
+    "total": {
+      "clones": 1,
+      "duplicatedLines": 28,
+      "duplicatedTokens": 174,
+      "lines": 86,
+      "newClones": 1,
+      "newDuplicatedLines": 28,
+      "percentage": 32.55813953488372,
+      "percentageTokens": 41.9277108433735,
+      "sources": 1,
+      "tokens": 415
+    }
+  }
+}

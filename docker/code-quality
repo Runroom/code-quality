@@ -1,0 +1,2 @@
+#!/bin/sh
+exec node /opt/code-quality/dist/cli.js "$@"

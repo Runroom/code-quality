@@ -1,0 +1,4 @@
+languages: [ts]
+architecture:
+  ts:
+    rulesFile: rules/arch.cjs

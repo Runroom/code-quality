@@ -1,0 +1,14 @@
+node_modules/
+dist/
+artifacts/
+coverage/
+.code-quality-tmp/
+fixtures/*/artifacts/
+fixtures/*/.code-quality-tmp/
+fixtures/php-project/vendor/
+fixtures/python-project/.venv/
+fixtures/python-project/.import_linter_cache/
+fixtures/python-project/complexipy-results.json
+*.log
+.pnpm-store/
+.deptrac.cache

@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "tool": "vulture@2.16",
+  "configHash": "0d3af21e69d5a3cb21e00b8bb68b636a2a3635b6b3ed06cbf6379cf074fe8b15",
+  "findings": {
+    "src/demo_app/client.py | vulture-function | /function:get_client#get_client": 1,
+    "src/demo_app/complex.py | vulture-function | /function:busy#busy": 1,
+    "src/demo_app/dead.py | vulture-function | /function:unused_fn#unused_fn": 1,
+    "src/demo_app/dead.py | vulture-import | /#os": 1,
+    "src/demo_app/domain/model.py | vulture-function | /function:load_model#load_model": 1
+  }
+}

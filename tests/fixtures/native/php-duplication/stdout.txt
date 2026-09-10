@@ -1,0 +1,2 @@
+[1mDuplications detection: Found 1 exact clones with 28(32.56%) duplicated lines in 1 (1 formats) files.[22m
+[32mJSON report saved to /work/artifacts/quality/php-duplication/jscpd/jscpd-report.json[39m

@@ -1,0 +1,11 @@
+{
+    "used-packages": [
+        {
+            "name": "php"
+        }
+    ],
+    "unused-packages": [
+        "psr\/log",
+        "symfony\/yaml"
+    ]
+}

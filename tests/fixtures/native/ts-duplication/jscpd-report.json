@@ -1,0 +1,109 @@
+{
+  "duplicates": [
+    {
+      "firstFile": {
+        "end": 86,
+        "endLoc": {
+          "column": 14,
+          "line": 86,
+          "position": 1545
+        },
+        "name": "complexity.ts",
+        "start": 27,
+        "startLoc": {
+          "column": 7,
+          "line": 27,
+          "position": 659
+        }
+      },
+      "format": "typescript",
+      "fragment": "  }, 0);\n  result += 1;\n  result += 1;\n  result += 1;\n  result += 1;\n  result += 1;\n  result += 1;\n  result += 1;\n  result += 1;\n  result += 1;\n  result += 1;\n  result += 1;\n  result += 1;\n  result += 1;\n  result += 1;\n  result += 1;\n  result += 1;\n  result += 1;\n  result += 1;\n  result += 1;\n  result += 1;\n  result += 1;\n  result += 1;\n  result += 1;\n  result += 1;\n  result += 1;\n  result += 1;\n  result += 1;\n  result += 1;\n  result += 1;\n  result += 1;\n  result += 1;\n  result += 1;\n  result += 1;\n  result += 1;\n  result += 1;\n  result += 1;\n  result += 1;\n  result += 1;\n  result += 1;\n  result += 1;\n  result += 1;\n  result += 1;\n  result += 1;\n  result += 1;\n  result += 1;\n  result += 1;\n  result += 1;\n  result += 1;\n  result += 1;\n  result += 1;\n  result += 1;\n  result += 1;\n  result += 1;\n  result += 1;\n  result += 1;\n  result += 1;\n  result += 1;\n  result += 1;\n  result += 1;",
+      "isNew": true,
+      "kind": "exact",
+      "lines": 60,
+      "secondFile": {
+        "end": 87,
+        "endLoc": {
+          "column": 14,
+          "line": 87,
+          "position": 1560
+        },
+        "name": "complexity.ts",
+        "start": 28,
+        "startLoc": {
+          "column": 13,
+          "line": 28,
+          "position": 674
+        }
+      },
+      "tokens": 237
+    },
+    {
+      "firstFile": {
+        "end": 14,
+        "endLoc": {
+          "column": 1,
+          "line": 14,
+          "position": 326
+        },
+        "name": "dup-a.ts",
+        "start": 1,
+        "startLoc": {
+          "column": 24,
+          "line": 1,
+          "position": 24
+        }
+      },
+      "format": "typescript",
+      "fragment": "export function computeA(values: number[]): number {\n  let total = 0;\n  for (const value of values) {\n    const doubled = value * 2;\n    const adjusted = doubled + 10;\n    const normalized = adjusted / 2;\n    if (normalized > 20) {\n      total += normalized;\n    } else {\n      total -= normalized;\n    }\n  }\n  return total;\n}",
+      "isNew": true,
+      "kind": "exact",
+      "lines": 14,
+      "secondFile": {
+        "end": 14,
+        "endLoc": {
+          "column": 1,
+          "line": 14,
+          "position": 326
+        },
+        "name": "dup-b.ts",
+        "start": 1,
+        "startLoc": {
+          "column": 24,
+          "line": 1,
+          "position": 24
+        }
+      },
+      "tokens": 68
+    }
+  ],
+  "statistics": {
+    "detectionDate": "2026-09-09T21:17:53.704Z",
+    "formats": {
+      "typescript": {
+        "clones": 2,
+        "duplicatedLines": 72,
+        "duplicatedTokens": 305,
+        "lines": 131,
+        "newClones": 2,
+        "newDuplicatedLines": 72,
+        "percentage": 54.961832061068705,
+        "percentageTokens": 44.72140762463343,
+        "sources": 4,
+        "tokens": 682
+      }
+    },
+    "total": {
+      "clones": 2,
+      "duplicatedLines": 72,
+      "duplicatedTokens": 305,
+      "lines": 131,
+      "newClones": 2,
+      "newDuplicatedLines": 72,
+      "percentage": 54.961832061068705,
+      "percentageTokens": 44.72140762463343,
+      "sources": 4,
+      "tokens": 682
+    }
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "name": "@runroom/code-quality",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24" },
+  "packageManager": "pnpm@10.17.1",
+  "bin": { "code-quality": "dist/cli.js" },
+  "scripts": {
+    "build": "node scripts/build.ts",
+    "copy-assets": "node scripts/copy-assets.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint -c .oxlintrc.json src tests scripts",
+    "test": "vitest run",
+    "capture": "node scripts/capture-native.ts",
+    "integration": "node scripts/integration.ts",
+    "docker:build": "docker build -t code-quality:dev .",
+    "verify": "pnpm typecheck && pnpm lint && pnpm test && pnpm build"
+  },
+  "dependencies": {
+    "commander": "15.0.0",
+    "picomatch": "4.0.7",
+    "tree-sitter-javascript": "0.25.0",
+    "tree-sitter-php": "0.24.2",
+    "tree-sitter-python": "0.25.0",
+    "tree-sitter-typescript": "0.23.2",
+    "web-tree-sitter": "0.27.0",
+    "yaml": "2.9.0",
+    "zod": "4.5.4"
+  },
+  "devDependencies": {
+    "@types/node": "24.13.3",
+    "@types/picomatch": "4.0.3",
+    "esbuild": "0.28.2",
+    "oxlint": "1.81.0",
+    "typescript": "5.9.3",
+    "vitest": "4.1.11"
+  }
+}

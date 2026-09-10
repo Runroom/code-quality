@@ -1,0 +1,70 @@
+name: quality
+
+on:
+  workflow_call:
+    inputs:
+      image-tag:
+        description: code-quality image tag
+        type: string
+        default: v1
+      checks:
+        description: Space-separated check IDs; empty means all detected checks
+        type: string
+        default: ""
+      setup:
+        description: Shell command run before checking (for example `composer install`)
+        type: string
+        default: ""
+      working-directory:
+        description: Consumer working directory inside /work
+        type: string
+        default: "."
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/runroom/code-quality:${{ inputs.image-tag }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ github.token }}
+      options: --user root
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+      - name: Setup
+        if: inputs.setup != ''
+        working-directory: ${{ inputs.working-directory }}
+        env:
+          CODE_QUALITY_SETUP: ${{ inputs.setup }}
+        run: bash -e -c "$CODE_QUALITY_SETUP"
+      - name: Validate checks
+        env:
+          CODE_QUALITY_CHECKS: ${{ inputs.checks }}
+        shell: bash
+        run: |
+          if ! printf '%s' "$CODE_QUALITY_CHECKS" | grep -Eq '^[a-z ]*$'; then
+            echo "Invalid checks input: only lowercase check ids separated by spaces are allowed" >&2
+            exit 1
+          fi
+      - name: Check
+        working-directory: ${{ inputs.working-directory }}
+        env:
+          CODE_QUALITY_CHECKS: ${{ inputs.checks }}
+        shell: bash
+        run: |
+          read -ra CHECKS <<< "$CODE_QUALITY_CHECKS"
+          code-quality check "${CHECKS[@]}"
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: code-quality
+          path: ${{ inputs.working-directory }}/artifacts/quality/
+          retention-days: 14
+          if-no-files-found: ignore

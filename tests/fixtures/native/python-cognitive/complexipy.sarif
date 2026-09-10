@@ -1,0 +1,60 @@
+{
+  "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+  "runs": [
+    {
+      "results": [
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "logicalLocations": [
+                {
+                  "kind": "function",
+                  "name": "busy"
+                }
+              ],
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/demo_app/complex.py",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "endLine": 61,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Function 'busy' has a cognitive complexity of 20, which exceeds the maximum allowed complexity of 15."
+          },
+          "ruleId": "CC001"
+        }
+      ],
+      "tool": {
+        "driver": {
+          "informationUri": "https://complexipy.com/",
+          "name": "complexipy",
+          "rules": [
+            {
+              "helpUri": "https://complexipy.com/understanding-scores/",
+              "id": "CC001",
+              "name": "CognitiveComplexity",
+              "properties": {
+                "tags": [
+                  "maintainability",
+                  "readability"
+                ]
+              },
+              "shortDescription": {
+                "text": "Cognitive complexity exceeds threshold"
+              }
+            }
+          ],
+          "version": "8.0.1"
+        }
+      }
+    }
+  ],
+  "version": "2.1.0"
+}

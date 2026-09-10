@@ -1,0 +1,1 @@
+JSON Report dumped to /work/artifacts/quality/php-architecture/deptrac.json

@@ -1,0 +1,40 @@
+[
+  {
+    "cell": null,
+    "code": "C901",
+    "end_location": {
+      "column": 9,
+      "row": 1
+    },
+    "filename": "/work/src/demo_app/complex.py",
+    "fix": null,
+    "location": {
+      "column": 5,
+      "row": 1
+    },
+    "message": "`busy` is too complex (12 > 10)",
+    "name": "complex-structure",
+    "noqa_row": 1,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/complex-structure"
+  },
+  {
+    "cell": null,
+    "code": "PLR0913",
+    "end_location": {
+      "column": 9,
+      "row": 1
+    },
+    "filename": "/work/src/demo_app/complex.py",
+    "fix": null,
+    "location": {
+      "column": 5,
+      "row": 1
+    },
+    "message": "Too many arguments in function definition (5 > 4)",
+    "name": "too-many-arguments",
+    "noqa_row": 1,
+    "severity": "error",
+    "url": "https://docs.astral.sh/ruff/rules/too-many-arguments"
+  }
+]

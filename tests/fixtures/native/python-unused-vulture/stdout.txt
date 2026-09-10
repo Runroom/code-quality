@@ -1,0 +1,5 @@
+src/demo_app/client.py:4: unused function 'get_client' (60% confidence)
+src/demo_app/complex.py:1: unused function 'busy' (60% confidence)
+src/demo_app/dead.py:1: unused import 'os' (90% confidence)
+src/demo_app/dead.py:4: unused function 'unused_fn' (60% confidence)
+src/demo_app/domain/model.py:4: unused function 'load_model' (60% confidence)

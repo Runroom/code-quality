@@ -1,0 +1,13 @@
+{
+  "name": "runroom/php-fixture",
+  "require": {
+    "php": "^8.4",
+    "psr/log": "3.0.2",
+    "symfony/yaml": "7.3.3"
+  },
+  "autoload": {
+    "psr-4": {
+      "App\\": "src/"
+    }
+  }
+}

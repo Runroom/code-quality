@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "tool": "knip@6.35.1",
+  "configHash": "0ed7718e8ec86f3f9c9238387293f2880c27a554dbd18a4b06d0d380d9203e18",
+  "findings": {
+    "package.json | unused-dependency | left-pad": 1,
+    "src/cognitive.ts | unused-file | src/cognitive.ts": 1,
+    "src/complexity.ts | unused-file | src/complexity.ts": 1,
+    "src/db/repo.ts | unused-file | src/db/repo.ts": 1,
+    "src/dup-a.ts | unused-file | src/dup-a.ts": 1,
+    "src/dup-b.ts | unused-file | src/dup-b.ts": 1,
+    "src/exports.ts | unused-export | /#orphan": 1,
+    "src/ui/view.ts | unused-file | src/ui/view.ts": 1,
+    "src/unused-file.ts | unused-file | src/unused-file.ts": 1
+  }
+}

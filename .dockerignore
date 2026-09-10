@@ -1,0 +1,6 @@
+node_modules
+dist
+artifacts
+fixtures/*/artifacts
+fixtures/php-project/vendor
+.git

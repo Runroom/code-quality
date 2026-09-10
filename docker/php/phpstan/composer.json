@@ -1,0 +1,14 @@
+{
+  "require": {
+    "phpstan/phpstan": "2.2.13",
+    "shipmonk/dead-code-detector": "1.4.0"
+  },
+  "config": {
+    "platform": {
+      "php": "8.4.24"
+    },
+    "allow-plugins": {
+      "dealerdirect/phpcodesniffer-composer-installer": true
+    }
+  }
+}
