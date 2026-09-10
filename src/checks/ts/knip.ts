@@ -37,7 +37,7 @@ const TEST_ENTRIES = [
   "**/*.{test,spec}.{ts,tsx,js,mjs,cjs}",
 ];
 
-export function requireNodeModules(config: ResolvedConfig): Applicability {
+function requireNodeModules(config: ResolvedConfig): Applicability {
   if (!existsSync(join(config.root, "package.json"))
     || existsSync(join(config.root, "node_modules"))) {
     return { kind: "run" };
