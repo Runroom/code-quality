@@ -45,6 +45,18 @@ describe("TypeScript anchors", () => {
       "/class:Foo/method:baz/function[0]",
     );
   });
+
+  it("anchors function types inside type literals", async () => {
+    const typed = "export type Repo = { search: (a, b, c, d, e) => Promise<X> };\n";
+    await expect(service.anchor("repo.ts", typed, offsetOf(typed, "search"), false))
+      .resolves.toBe("/type:Repo/method:search");
+  });
+
+  it("anchors valid declarations when a parse error is elsewhere", async () => {
+    const partlyBroken = "export function good() { return 1; }\nconst broken: = 1;\n";
+    await expect(service.anchor("partial.ts", partlyBroken, offsetOf(partlyBroken, "return"), false))
+      .resolves.toBe("/function:good");
+  });
 });
 
 describe("other grammar anchors", () => {
@@ -53,6 +65,14 @@ describe("other grammar anchors", () => {
     await expect(service.anchor("sample.tsx", source, offsetOf(source, "x()"), false)).resolves.toBe(
       "/function:Component/function",
     );
+  });
+
+  it.each([
+    ["JSX text", "export function View() { return <p>R&D</p>; }"],
+    ["a JSX attribute", "export function View() { return <a href=\"?a=1&b=2\">go</a>; }"],
+  ])("anchors a function despite an ampersand in %s", async (_label, source) => {
+    await expect(service.anchor("view.tsx", source, offsetOf(source, "return"), false))
+      .resolves.toBe("/function:View");
   });
 
   it("anchors JavaScript functions", async () => {
@@ -106,8 +126,15 @@ describe("anchor errors", () => {
     await expect(service.anchor("sample.ts", source, offsetOf(source, "\n"), false)).rejects.toThrow("cannot identify");
   });
 
-  it("rejects files with syntax errors", async () => {
-    await expect(service.anchor("sample.py", "def broken(:", 0, false)).rejects.toThrow("could not parse");
+  it("accepts a named target whose missing token is not an ERROR node", async () => {
+    await expect(service.anchor("sample.py", "def broken(:", 0, false))
+      .resolves.toBe("/function:broken");
+  });
+
+  it("rejects a target inside an ERROR range as unparsed", async () => {
+    const source = "if ( function busy(a, b, c, d, e) { return 1; }";
+    await expect(service.anchor("broken.ts", source, offsetOf(source, "busy"), false))
+      .rejects.toMatchObject({ kind: "unparsed" });
   });
 
   it("rejects unsupported grammars", async () => {

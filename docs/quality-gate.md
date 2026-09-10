@@ -8,11 +8,15 @@ The policy is owned by the image and is not a consumer setting. `.code-quality.y
 
 ## Built-in test exclusions
 
-Every blocking check applies the built-in `TEST_EXCLUSIONS` patterns, so test files are excluded from complexity, cognitive complexity, exact duplication, unused-code, and architecture checks. The patterns are `**/*.test.*`, `**/*.spec.*`, `**/__tests__/**`, `**/tests/**`, `**/test/**`, `**/*Test.php`, `**/test_*.py`, `**/*_test.py`, and `**/conftest.py`. Generated frontend bundles under `public/build`, `*.min.js`, `*.min.css`, and Symfony `var/` cache files are also built-in exclusions. Consumer `exclude` patterns are additive.
+Every blocking check applies the built-in `TEST_EXCLUSIONS` patterns, so test files are excluded from complexity, cognitive complexity, exact duplication, unused-code, and architecture checks. The patterns are `**/*.test.*`, `**/*.spec.*`, `**/__tests__/**`, `**/tests/**`, `**/test/**`, `**/*Test.php`, `**/test_*.py`, `**/*_test.py`, and `**/conftest.py`. Generated frontend bundles under `public/build`, `*.min.js`, `*.min.css`, and Symfony `var/` cache files are also built-in exclusions. Drupal exclusions cover `web/core`, `docroot/core`, contrib modules/themes/profiles, libraries, public site files, Drush, and DDEV provisioning paths. Consumer `exclude` patterns are additive.
 
 ## Language detection
 
-Without an explicit `languages` list, manifests detect TS/JS from `package.json`, PHP from `composer.json`, and Python from `pyproject.toml` or `setup.py`. Web needs no manifest: `.twig`, `.html`, `.css`, `.scss`, or `.less` files under `templates/` or `assets/` detect it. An auto-detected manifest language whose default roots contain no source files is omitted and reported as a `Notice: ...` line with instructions for `paths.<language>`; languages listed explicitly or given explicit paths still fail when no source files are found.
+Without an explicit `languages` list, manifests detect TS/JS from `package.json`, PHP from `composer.json`, and Python from `pyproject.toml` or `setup.py`. Web needs no manifest: `.twig`, `.html`, `.css`, `.scss`, or `.less` files under `templates/` or `assets/` detect it. When an auto-detected manifest language has no source files in its default roots, depth-1 source directories are discovered (excluding hidden, test, build, dependency, and other generated roots) and written to `paths.<language>`. If no roots are discovered, the language is omitted and reported as a `Notice: ...` line; languages listed explicitly or given explicit paths still fail when no source files are found.
+
+When `composer.json` requires `drupal/core` or a `drupal/core-*` package, the Drupal profile defaults PHP to existing custom module, theme, and profile directories below `web/` or `docroot/`. Web defaults to custom theme directories, and TS/JS adds those directories when they contain JavaScript. If no custom Drupal directory exists, ordinary source-root discovery remains the fallback. A `Notice:` explains when the Drupal profile is active. The normal applicable complexity, cognitive-complexity, duplication, and architecture checks run for the detected custom-code languages; PHP `composer-unused` and `composer-require-checker` also run when Composer dependencies are installed, while PHPStan dead-code analysis is skipped because consumer PHPStan extensions are incompatible with the image.
+
+The source walker skips files whose longest line exceeds 1,000 characters, names ending in `.min.js` or `.min.css`, and versioned JavaScript bundles such as `swagger-ui-4.18.3.js`. Their exact repository-relative paths are added to every adapter's exclusions. One `Notice:` lists up to five skipped files and reports the remaining count.
 
 ## Thresholds by language
 
@@ -21,7 +25,7 @@ The v1 thresholds are fixed as follows.
 | Check | Language | Tool(s) | Threshold and semantics |
 | --- | --- | --- | --- |
 | Complexity | TS/JS | oxlint 1.82.0 | Complexity 10; max lines per function 60, skipping blank lines and comments; max parameters 4; max depth 3; max nested callbacks 3. Only warning diagnostics are accepted. |
-| Complexity | PHP | PHPMD 2.15.0 and PHPCS 4.0.4 | PHPMD is configured with inclusive report thresholds 11/61/5 for cyclomatic complexity, method length, and parameters respectively (the policy cutoffs are 10/60/4). PHPCS nesting level is 3. |
+| Complexity | PHP | PHPCS 4.0.4 with Slevomat coding standard 8.31.1 and the Runroom standard | `Generic.Metrics.CyclomaticComplexity` complexity 10; `Generic.Metrics.NestingLevel` nesting level 3; `SlevomatCodingStandard.Functions.FunctionLength` maxLinesLength 60; `Runroom.Metrics.ParameterCount` maxParameters 4. |
 | Complexity | Python | Ruff 0.16.6 | C901 max-complexity 10; PLR0915 max-statements 60; PLR0913 max-args 4; PLR1702 max-nested-blocks 3. |
 | Cognitive complexity | TS/JS | Fallow 3.23.0 | Values greater than 15 block. |
 | Cognitive complexity | PHP | Slevomat coding standard 8.31.1 through PHPCS | `SlevomatCodingStandard.Complexity.Cognitive` maxComplexity 15; values greater than 15 block. |
@@ -35,11 +39,9 @@ The v1 thresholds are fixed as follows.
 | Architecture | PHP | deptrac 4.7.1 | Runs only when `deptrac.yaml` or a configured rules file exists. |
 | Architecture | Python | import-linter 2.15 | Runs only when `.importlinter` or a configured rules file exists. |
 
-The PHPMD values are written as 11/61/5 because PHPMD reports a violation inclusively at those configured values. A function at the policy maximum (10 complexity, 60 lines, or 4 parameters) is allowed; the next value is the first violation.
-
 ## v1 tool pins
 
-These are the exact binary and library pins in the v1 image. `versions` prints the 16 binary pins and the two library pins, and `doctor` verifies them.
+These are the exact binary and library pins in the v1 image. `versions` prints the 15 binary pins and the two library pins, and `doctor` verifies them.
 
 | Family | Binary or package | Pin |
 | --- | --- | --- |
@@ -48,7 +50,6 @@ These are the exact binary and library pins in the v1 image. `versions` prints t
 | TS/JS | jscpd | 5.2.0 |
 | TS/JS | knip | 6.35.1 |
 | TS/JS | dependency-cruiser (`depcruise`) | 18.2.0 |
-| PHP | phpmd | 2.15.0 |
 | PHP | squizlabs/php_codesniffer (`phpcs`) | 4.0.4 |
 | PHP | slevomat/coding-standard | 8.31.1 |
 | PHP | phpstan | 2.2.13 |
@@ -155,6 +156,8 @@ When import-linter reports a module that cannot be resolved to a source file, it
 Locations from native tools are converted to structural paths so line shifts, comments, and blank lines do not churn a baseline. A named class method can look like `/class:Foo/method:bar`; a function and a nested block diagnostic can look like `/function:busy/if[11]/block/if`. Anchors contain no line, column, or byte offset.
 
 Names come from the syntax tree. An ordinal is added only when anonymous or same-labeled siblings collide. Renames, moving a declaration to another structural parent, grammar-visible edits, and reordering anonymous siblings can legitimately change an anchor and require reviewed initialization. An invalid location or ambiguous normalized key fails instead of being dropped.
+
+Some supported tree-sitter grammars reject otherwise valid newer syntax. When the diagnostic's structural path cannot be parsed safely, its anchor falls back to `~symbol` when the tool reports a symbol name, or `~L<line>` otherwise. The CLI prints one `Notice:` per affected file because these fallback keys are less stable than structural paths.
 
 ## Blocking and advisory reports
 

@@ -1,10 +1,13 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
 import { cognitiveRuleset } from "../../../src/checks/php/phpcs-cognitive.ts";
-import { nestingRuleset } from "../../../src/checks/php/phpcs-nesting.ts";
+import {
+  complexityRuleset,
+  phpcsComplexityAdapter,
+} from "../../../src/checks/php/phpcs-complexity.ts";
 import { phpcsFindings } from "../../../src/checks/php/phpcs-shared.ts";
 import { checkContext } from "../../helpers/check-context.ts";
 import { POLICY } from "../../../src/core/config/policy.ts";
@@ -29,9 +32,26 @@ function report(sourceName: string, message: string, type: "ERROR" | "WARNING" =
   }] } } };
 }
 
+function complexityReport(): unknown {
+  const messages = [
+    ["Generic.Metrics.CyclomaticComplexity.TooHigh", "The function's cyclomatic complexity (12) exceeds 10; consider refactoring the function", "WARNING"],
+    ["Generic.Metrics.NestingLevel.TooHigh", "Function's nesting level (4) exceeds 3; consider refactoring the function", "WARNING"],
+    ["SlevomatCodingStandard.Functions.FunctionLength.FunctionLength", "Your function is too long. Currently using 66 lines. Can be up to 60 lines.", "ERROR"],
+    ["Runroom.Metrics.ParameterCount.TooMany", 'Function "run" has 5 parameters; the limit is 4', "WARNING"],
+  ].map(([messageSource, message, type]) => ({
+    message, source: messageSource, type, line: 3, column: 5,
+  }));
+  return { totals: { errors: 1, warnings: 3 }, files: { "src/a.php": { messages } } };
+}
+
 describe("phpcs config and synthetic parser", () => {
-  it("generates nesting level 3 and cognitive max 15", () => {
-    expect(nestingRuleset()).toContain(`name="nestingLevel" value="${POLICY.maxDepth}"`);
+  it("generates all PHP complexity thresholds and cognitive max 15", () => {
+    const ruleset = complexityRuleset();
+    expect(ruleset).toContain(`name="complexity" value="${POLICY.complexity}"`);
+    expect(ruleset).toContain(`name="nestingLevel" value="${POLICY.maxDepth}"`);
+    expect(ruleset).toContain(`name="maxLinesLength" value="${POLICY.maxLinesPerFunction}"`);
+    expect(ruleset).toContain(`name="maxParameters" value="${POLICY.maxParams}"`);
+    expect(ruleset).toContain("/opt/php/phpcs-standard");
     expect(cognitiveRuleset()).toContain(`name="maxComplexity" value="${POLICY.cognitive}"`);
   });
 
@@ -64,24 +84,47 @@ describe("phpcs config and synthetic parser", () => {
       cognitiveRule,
     )).rejects.toThrow("below policy threshold");
   });
-});
 
-for (const fixture of [
-  { id: "php-complexity-phpcs", rule: nestingRule, label: "nesting" },
-  { id: "php-cognitive", rule: cognitiveRule, label: "cognitive complexity" },
-]) {
-  describe(`${fixture.label} captured fixture`, () => {
-    it(`finds the Complex::run ${fixture.label} violation`, async () => {
-      const nativeFile = resolve(`tests/fixtures/native/${fixture.id}/stdout.json`);
-      const parsed = await phpcsFindings(
-        checkContext(root, "php"), JSON.parse(readFileSync(nativeFile, "utf8")) as unknown,
-        fixture.rule,
-      );
-      const ruleLabel = fixture.rule.ruleLabel;
-      const value = fixture.id === "php-cognitive" ? 17 : 4;
-      expect(parsed).toEqual({
-        [`src/Service/Complex.php | ${ruleLabel} | /class:Complex/method:run`]: value,
-      });
+  it("normalizes all four complexity sniff measurements", async () => {
+    const parsed = await phpcsComplexityAdapter.parse(
+      checkContext("/r", "php", { "src/a.php": source }),
+      { stdout: JSON.stringify(complexityReport()), stderr: "", exitCode: 1 },
+    );
+    expect(parsed).toEqual({
+      "src/a.php | Generic.Metrics.CyclomaticComplexity | /class:Demo/method:run": 12,
+      "src/a.php | Generic.Metrics.NestingLevel | /class:Demo/method:run": 4,
+      "src/a.php | Runroom.Metrics.ParameterCount | /class:Demo/method:run": 5,
+      "src/a.php | SlevomatCodingStandard.Functions.FunctionLength | /class:Demo/method:run": 66,
     });
   });
-}
+});
+
+const complexityFixture = resolve("tests/fixtures/native/php-complexity/stdout.json");
+
+describe.skipIf(!existsSync(complexityFixture))("PHP complexity captured fixture", () => {
+  it("finds all four Complex::run metrics", async () => {
+    const parsed = await phpcsComplexityAdapter.parse(
+      checkContext(root, "php"),
+      { stdout: readFileSync(complexityFixture, "utf8"), stderr: "", exitCode: 1 },
+    );
+    expect(parsed).toEqual({
+      "src/Service/Complex.php | Generic.Metrics.CyclomaticComplexity | /class:Complex/method:run": 12,
+      "src/Service/Complex.php | Generic.Metrics.NestingLevel | /class:Complex/method:run": 4,
+      "src/Service/Complex.php | Runroom.Metrics.ParameterCount | /class:Complex/method:run": 5,
+      "src/Service/Complex.php | SlevomatCodingStandard.Functions.FunctionLength | /class:Complex/method:run": 66,
+    });
+  });
+});
+
+describe("cognitive complexity captured fixture", () => {
+  it("finds the Complex::run cognitive complexity violation", async () => {
+    const nativeFile = resolve("tests/fixtures/native/php-cognitive/stdout.json");
+    const parsed = await phpcsFindings(
+      checkContext(root, "php"), JSON.parse(readFileSync(nativeFile, "utf8")) as unknown,
+      cognitiveRule,
+    );
+    expect(parsed).toEqual({
+      "src/Service/Complex.php | cognitive-complexity | /class:Complex/method:run": 17,
+    });
+  });
+});

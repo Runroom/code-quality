@@ -7,6 +7,7 @@ export type ArchitectureSelection =
 
 export interface ResolvedConfig {
   root: string;
+  isDrupal: boolean;
   languages: Language[];
   paths: Partial<Record<Language, string[]>>;
   exclude: string[];

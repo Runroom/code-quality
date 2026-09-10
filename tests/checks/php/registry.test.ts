@@ -6,8 +6,7 @@ it("registers every PHP adapter", () => {
   const ids = ADAPTERS.filter((adapter) => adapter.language === "php")
     .map((adapter) => adapter.id);
   expect(ids).toEqual([
-    "php-complexity-phpmd",
-    "php-complexity-phpcs",
+    "php-complexity",
     "php-cognitive",
     "php-duplication",
     "php-unused-composer-unused",

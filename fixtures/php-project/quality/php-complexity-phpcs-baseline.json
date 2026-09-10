@@ -1,8 +1,0 @@
-{
-  "version": 1,
-  "tool": "phpcs@4.0.4",
-  "configHash": "d190d4af4c1c69709a715fe0b6c34938a3f304601bab8699280bf1e10203f5ed",
-  "findings": {
-    "src/Service/Complex.php | Generic.Metrics.NestingLevel | /class:Complex/method:run": 4
-  }
-}

@@ -118,7 +118,8 @@ function main(): void {
     tempDir: "/work/.code-quality-tmp",
     artifactDir: `/work/artifacts/quality/${adapter.id}`,
     readSource: (file) => readFileSync(join(root, file), "utf8"),
-    anchor: { anchor: async () => "/" },
+      anchor: { anchor: async () => "/" },
+      notice: () => {},
   };
   rmSync(join(root, ".code-quality-tmp"), { recursive: true, force: true });
   mkdirSync(join(root, "artifacts", "quality", adapter.id), { recursive: true });

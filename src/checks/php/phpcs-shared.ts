@@ -27,7 +27,8 @@ export interface PhpcsRule {
 
 export function phpcsRuleset(name: string, rules: string): string {
   const installed = xml("config", {
-    name: "installed_paths", value: "/opt/php/phpcs/vendor/slevomat/coding-standard",
+    name: "installed_paths",
+    value: "/opt/php/phpcs/vendor/slevomat/coding-standard,/opt/php/phpcs-standard",
   });
   const extensions = xml("arg", { name: "extensions", value: "php" });
   return `<?xml version="1.0"?>\n${xml("ruleset", { name }, [installed, extensions, rules])}\n`;
@@ -45,12 +46,13 @@ export function phpcsCommand(ctx: CheckContext, rulesetFile: string): ToolInvoca
 export async function phpcsFindings(
   ctx: CheckContext,
   input: unknown,
-  rule: PhpcsRule,
+  rule: PhpcsRule | readonly PhpcsRule[],
 ): Promise<Findings> {
   const report = phpcsSchema.parse(input);
   const findings = new FindingsBuilder();
+  const rules = Array.isArray(rule) ? rule : [rule];
   for (const [nativeFile, entry] of Object.entries(report.files)) {
-    await addMessages(ctx, findings, { nativeFile, messages: entry.messages }, rule);
+    await addMessages(ctx, findings, { nativeFile, messages: entry.messages }, rules);
   }
   return findings.build();
 }
@@ -62,12 +64,13 @@ async function addMessages(
     nativeFile: string;
     messages: z.infer<typeof phpcsSchema>["files"][string]["messages"];
   },
-  rule: PhpcsRule,
+  rules: readonly PhpcsRule[],
 ): Promise<void> {
   const file = relativizeFrom(ctx.root, entry.nativeFile);
   for (const message of entry.messages) {
     if (message.source.startsWith("Internal.")) continue;
-    if (!Object.hasOwn(rule.sources, message.source)) {
+    const rule = rules.find((candidate) => Object.hasOwn(candidate.sources, message.source));
+    if (!rule) {
       return fail(`Unbaselined PHPCS source ${message.source}`);
     }
     if (rule.sources[message.source] !== message.type) {

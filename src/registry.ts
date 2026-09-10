@@ -8,8 +8,7 @@ import { oxlintAdapter } from "./checks/ts/oxlint.ts";
 import { composerUnusedAdapter } from "./checks/php/composer-unused.ts";
 import { deptracAdapter } from "./checks/php/deptrac.ts";
 import { phpcsCognitiveAdapter } from "./checks/php/phpcs-cognitive.ts";
-import { phpcsNestingAdapter } from "./checks/php/phpcs-nesting.ts";
-import { phpmdAdapter } from "./checks/php/phpmd.ts";
+import { phpcsComplexityAdapter } from "./checks/php/phpcs-complexity.ts";
 import { phpstanDeadCodeAdapter } from "./checks/php/phpstan-dead-code.ts";
 import { requireCheckerAdapter } from "./checks/php/require-checker.ts";
 import { complexipyAdapter } from "./checks/python/complexipy.ts";
@@ -25,7 +24,6 @@ export const TOOL_PINS: readonly ToolPin[] = [
   { bin: "jscpd", version: "5.2.0" },
   { bin: "knip", version: "6.35.1" },
   { bin: "depcruise", version: "18.2.0" },
-  { bin: "phpmd", version: "2.15.0" },
   { bin: "phpcs", version: "4.0.4" },
   { bin: "phpstan", version: "2.2.13" },
   { bin: "deptrac", version: "4.7.1" },
@@ -66,8 +64,7 @@ export const ADAPTERS: readonly CheckAdapter[] = [
   jscpdAdapter("ts"),
   knipAdapter,
   dependencyCruiserAdapter,
-  phpmdAdapter,
-  phpcsNestingAdapter,
+  phpcsComplexityAdapter,
   phpcsCognitiveAdapter,
   jscpdAdapter("php"),
   composerUnusedAdapter,

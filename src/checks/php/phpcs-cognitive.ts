@@ -26,5 +26,9 @@ export const phpcsCognitiveAdapter: CheckAdapter = {
   applicability: () => ({ kind: "run" }),
   configFiles: () => [{ path: "phpcs-cognitive.xml", content: cognitiveRuleset() }],
   command: (ctx) => phpcsCommand(ctx, join(ctx.tempDir, "phpcs-cognitive.xml")),
-  parse: (ctx, result) => phpcsFindings(ctx, parseJsonOutput(result.stdout, "phpcs"), COGNITIVE_RULE),
+  parse: (ctx, result) => phpcsFindings(
+    ctx,
+    parseJsonOutput(result.stdout, "phpcs", result.stderr),
+    COGNITIVE_RULE,
+  ),
 };

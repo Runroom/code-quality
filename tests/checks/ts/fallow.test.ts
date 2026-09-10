@@ -86,6 +86,21 @@ describe("fallow synthetic parser", () => {
   });
 });
 
+it("reports the message from a fallow error document", async () => {
+  const ctx = checkContext("/r", "ts", { "src/a.ts": source });
+  await expect(fallowFindings(ctx, {
+    error: true,
+    message: "analysis failed: Configuration error: invalid plugin regex tanstack-router",
+  })).rejects.toThrow(
+    "analysis failed: Configuration error: invalid plugin regex tanstack-router",
+  );
+});
+
+it("accepts fallow's structured-error exit code for parser handling", () => {
+  const ctx = checkContext("/r", "ts", { "src/a.ts": source });
+  expect(fallowAdapter.command(ctx).exitCodes).toEqual([0, 2]);
+});
+
 describe("fallow captured fixture", () => {
   it("uses zero-based col 7 for the busy function declaration", async () => {
     const input = fallowReport({

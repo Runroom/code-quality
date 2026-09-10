@@ -5,6 +5,7 @@ import { canonicalJson, configHash } from "../../../src/core/config/hash.ts";
 import type { ResolvedConfig } from "../../../src/core/config/types.ts";
 
 const baseConfig: Omit<ResolvedConfig, "root" | "configHash"> = {
+  isDrupal: false,
   languages: ["ts"],
   paths: { ts: ["src"] },
   exclude: [],

@@ -39,6 +39,7 @@ export interface CheckContext {
   artifactDir: string;
   readSource(relativeFile: string): string;
   anchor: AnchorService;
+  notice(message: string): void;
 }
 
 export type Applicability =

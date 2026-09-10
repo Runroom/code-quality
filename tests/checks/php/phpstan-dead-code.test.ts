@@ -88,6 +88,16 @@ describe("phpstan dead-code synthetic parser", () => {
       kind: "error", message: expect.stringContaining("composer install"),
     });
   });
+
+  it("skips dead-code analysis for Drupal projects", () => {
+    const context = checkContext("/r", "php");
+    context.config.isDrupal = true;
+    expect(phpstanDeadCodeAdapter.applicability(context.config)).toEqual({
+      kind: "skip",
+      reason: "Drupal project: PHPStan dead-code analysis is skipped "
+        + "(the project's own PHPStan extensions are incompatible with the image)",
+    });
+  });
 });
 
 describe("phpstan captured fixture", () => {

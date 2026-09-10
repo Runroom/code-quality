@@ -21,6 +21,15 @@ export const BUILTIN_EXCLUSIONS = [
   "**/public/build/**",
   "**/*.min.js",
   "**/*.min.css",
+  "**/web/core/**",
+  "**/docroot/core/**",
+  "**/modules/contrib/**",
+  "**/themes/contrib/**",
+  "**/profiles/contrib/**",
+  "**/libraries/**",
+  "**/sites/*/files/**",
+  "**/drush/**",
+  "**/ddev.provision/**",
   "**/var/**",
 ] as const;
 

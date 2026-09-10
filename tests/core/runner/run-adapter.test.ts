@@ -27,6 +27,7 @@ describe("runAdapter artifacts", () => {
     };
     await runAdapter(adapter, {
       root,
+      isDrupal: false,
       languages: ["ts"],
       paths: { ts: ["src"] },
       exclude: [],

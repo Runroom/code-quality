@@ -3,13 +3,24 @@ import { dirname, join } from "node:path";
 
 import { Language, Parser, type Node, type Tree } from "web-tree-sitter";
 
-import { fail } from "../errors.ts";
 import { KINDS, grammarFor, labelFor, type Grammar } from "./kinds.ts";
 import { byteOffsetToIndex } from "./offsets.ts";
 import { structuralPath } from "./path.ts";
 
 export interface AnchorService {
   anchor(file: string, source: string, byteOffset: number, blockMode: boolean): Promise<string>;
+}
+
+export type AnchorErrorKind = "unparsed" | "cannot identify";
+
+export class AnchorError extends Error {
+  readonly kind: AnchorErrorKind;
+
+  constructor(kind: AnchorErrorKind, message: string) {
+    super(message);
+    this.name = "AnchorError";
+    this.kind = kind;
+  }
 }
 
 export function assetsDir(): string {
@@ -42,12 +53,46 @@ function functionTarget(grammar: Grammar, node: Node, source: string): Node | nu
   let current: Node | null = node;
   while (current) {
     if (Object.hasOwn(KINDS[grammar].functions, current.type)) return current;
+    if (current.type === "property_signature") {
+      const functionType = current.namedChildren
+        .flatMap((child) => child.namedChildren)
+        .find((child) => Object.hasOwn(KINDS[grammar].functions, child.type));
+      if (functionType) return functionType;
+    }
     if (!container && Object.hasOwn(KINDS[grammar].containers, current.type) && labelFor(grammar, current, source)) {
       container = current;
     }
     current = current.parent;
   }
   return container;
+}
+
+function anchorError(kind: AnchorErrorKind, file: string, byteOffset?: number): never {
+  const detail = kind === "unparsed"
+    ? "grammar could not parse the file"
+    : `cannot identify diagnostic anchor at byte ${byteOffset}`;
+  throw new AnchorError(kind, `${file}: ${detail}`);
+}
+
+function isInsideError(root: Node, target: Node): boolean {
+  const stack = [...root.namedChildren];
+  while (stack.length > 0) {
+    const current = stack.pop()!;
+    if (current.type === "ERROR"
+      && current.startIndex <= target.startIndex
+      && current.endIndex >= target.endIndex) return true;
+    stack.push(...current.namedChildren);
+  }
+  return false;
+}
+
+function hasErrorAncestor(node: Node): boolean {
+  let current: Node | null = node;
+  while (current) {
+    if (current.type === "ERROR") return true;
+    current = current.parent;
+  }
+  return false;
 }
 
 export function createAnchorService(dir = assetsDir()): AnchorService {
@@ -74,18 +119,17 @@ export function createAnchorService(dir = assetsDir()): AnchorService {
       } finally {
         parser.delete();
       }
-      if (!tree) return fail(`${file}: grammar could not parse the file`);
-      if (tree.rootNode.hasError) {
-        tree.delete();
-        return fail(`${file}: grammar could not parse the file`);
-      }
+      if (!tree) return anchorError("unparsed", file);
       try {
         const index = byteOffsetToIndex(source, byteOffset);
-        const leaf = tree.rootNode.descendantForIndex(index) ?? fail(
-          `${file}: cannot identify diagnostic anchor at byte ${byteOffset}`,
-        );
+        const leaf = tree.rootNode.descendantForIndex(index)
+          ?? anchorError("cannot identify", file, byteOffset);
         const target = blockMode ? blockTarget(grammar, leaf) : functionTarget(grammar, leaf, source);
-        if (!target) return fail(`${file}: cannot identify diagnostic anchor at byte ${byteOffset}`);
+        if (!target) return anchorError("cannot identify", file, byteOffset);
+        if (tree.rootNode.hasError
+          && (hasErrorAncestor(target) || isInsideError(tree.rootNode, target))) {
+          return anchorError("unparsed", file);
+        }
         return structuralPath(grammar, target, source);
       } finally {
         tree.delete();

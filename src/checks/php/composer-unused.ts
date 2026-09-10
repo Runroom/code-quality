@@ -44,6 +44,6 @@ export const composerUnusedAdapter: CheckAdapter = {
     exitCodes: [0],
   }),
   parse: (_ctx, result) => Promise.resolve(
-    composerUnusedFindings(parseJsonOutput(result.stdout, "composer-unused")),
+    composerUnusedFindings(parseJsonOutput(result.stdout, "composer-unused", result.stderr)),
   ),
 };

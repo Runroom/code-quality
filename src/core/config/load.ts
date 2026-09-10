@@ -7,8 +7,13 @@ import { ZodError } from "zod";
 import { fail } from "../errors.ts";
 import { BUILTIN_EXCLUSIONS, TEST_EXCLUSIONS } from "./exclusions.ts";
 import { configHash } from "./hash.ts";
-import { defaultPaths, detectLanguages, selectArchitecture } from "./detect.ts";
-import { findSourceFiles, LANGUAGE_EXTENSIONS } from "./sources.ts";
+import { defaultPaths, detectLanguages, isDrupalProject, selectArchitecture } from "./detect.ts";
+import {
+  discoverSourceRoots,
+  findMinifiedFiles,
+  findSourceFiles,
+  LANGUAGE_EXTENSIONS,
+} from "./sources.ts";
 import {
   LANGUAGES,
   consumerConfigSchema,
@@ -69,9 +74,6 @@ function resolveLanguages(root: string, config: ConsumerConfig): LanguageResolut
   const configuredPaths = configuredPathLanguages(config);
   const detected = detectLanguages(root);
   const languages = config.languages ?? [...new Set([...detected, ...configuredPaths])];
-  if (languages.length === 0) {
-    return fail("No supported language detected; configure languages in .code-quality.yml.");
-  }
   return {
     languages: [...languages],
     explicit: new Set([...config.languages ?? [], ...configuredPaths]),
@@ -119,6 +121,50 @@ function noDefaultPath(language: Language): never {
   );
 }
 
+function discoveredRootsNotice(language: Language, roots: string[]): string {
+  return `${language}: no ${language} sources under ${DEFAULT_CANDIDATES[language].split(", ")[0]}; `
+    + `using detected roots ${roots.join(", ")}`;
+}
+
+interface LanguagePathResolution {
+  path?: string[];
+  notice?: string;
+}
+
+interface LanguagePathContext {
+  root: string;
+  language: Language;
+  explicit: ReadonlySet<Language>;
+  config: ConsumerConfig;
+  excludes: readonly string[];
+}
+
+function resolveLanguagePath(context: LanguagePathContext): LanguagePathResolution {
+  const { root, language, explicit, config, excludes } = context;
+  const configured = config.paths?.[language];
+  if (configured !== undefined) {
+    const paths = ensureConfiguredPaths(root, language, configured);
+    ensureSourceFiles(root, language, paths, excludes);
+    return { path: paths };
+  }
+
+  const defaults = defaultPaths(root, language);
+  if (explicit.has(language) && defaults.length === 0) return { path: noDefaultPath(language) };
+  if (defaults.length > 0 && findSourceFiles(root, defaults, language, excludes).length > 0) {
+    return { path: defaults };
+  }
+  if (explicit.has(language)) {
+    ensureSourceFiles(root, language, defaults, excludes);
+    return { path: defaults };
+  }
+
+  const discovered = discoverSourceRoots(root, language, excludes);
+  if (discovered.length > 0) {
+    return { path: discovered, notice: discoveredRootsNotice(language, discovered) };
+  }
+  return { notice: noSourceNotice(root, language, defaults) };
+}
+
 function resolvePaths(
   root: string,
   languages: Language[],
@@ -129,26 +175,33 @@ function resolvePaths(
   const notices: string[] = [];
   const excludes = [...BUILTIN_EXCLUSIONS, ...config.exclude ?? [], ...TEST_EXCLUSIONS];
   for (const language of languages) {
-    const configured = config.paths?.[language];
-    if (configured !== undefined) {
-      paths[language] = ensureConfiguredPaths(root, language, configured);
-      ensureSourceFiles(root, language, paths[language], excludes);
-      continue;
-    }
-    const defaults = defaultPaths(root, language);
-    if (defaults.length === 0) {
-      if (explicit.has(language)) return noDefaultPath(language);
-      notices.push(noSourceNotice(root, language, defaults));
-      continue;
-    }
-    if (findSourceFiles(root, defaults, language, excludes).length === 0) {
-      if (explicit.has(language)) ensureSourceFiles(root, language, defaults, excludes);
-      notices.push(noSourceNotice(root, language, defaults));
-      continue;
-    }
-    paths[language] = defaults;
+    const resolution = resolveLanguagePath({ root, language, explicit, config, excludes });
+    if (resolution.path !== undefined) paths[language] = resolution.path;
+    if (resolution.notice !== undefined) notices.push(resolution.notice);
+  }
+  if (isDrupalProject(root)) {
+    notices.push(
+      "Drupal profile: using custom module, theme, and profile roots while excluding core, "
+        + "contrib, generated, and runtime paths",
+    );
   }
   return { paths, notices };
+}
+
+function minifiedNotice(files: string[]): string {
+  const displayed = files.slice(0, 5).join(", ");
+  const remainder = files.length > 5 ? ` (+${files.length - 5} more)` : "";
+  return `skipping minified/vendored files: ${displayed}${remainder}`;
+}
+
+function resolveMinifiedFiles(
+  root: string,
+  paths: Partial<Record<Language, string[]>>,
+  consumerExcludes: readonly string[],
+): string[] {
+  const roots = [...new Set(Object.values(paths).flatMap((entries) => entries ?? []))];
+  const excludes = [...BUILTIN_EXCLUSIONS, ...consumerExcludes, ...TEST_EXCLUSIONS];
+  return findMinifiedFiles(root, roots, excludes);
 }
 
 function resolveArchitecture(
@@ -176,6 +229,7 @@ function resolveArchitecture(
 
 export function loadConfig(root: string): ResolvedConfig {
   const consumer = readYaml(root);
+  const isDrupal = isDrupalProject(root);
   const languageResolution = resolveLanguages(root, consumer);
   const pathResolution = resolvePaths(
     root,
@@ -187,11 +241,14 @@ export function loadConfig(root: string): ResolvedConfig {
     (language) => pathResolution.paths[language] !== undefined,
   );
   const paths = pathResolution.paths;
+  const minified = resolveMinifiedFiles(root, paths, consumer.exclude ?? []);
+  if (minified.length > 0) pathResolution.notices.push(minifiedNotice(minified));
   const architecture = resolveArchitecture(root, languages, consumer);
   const resolved = {
+    isDrupal,
     languages,
     paths,
-    exclude: consumer.exclude ?? [],
+    exclude: [...consumer.exclude ?? [], ...minified],
     disabled: consumer.checks?.disabled ?? [],
     architecture,
     notices: pathResolution.notices,

@@ -179,7 +179,7 @@ This example does not change any threshold. A consumer may omit all fields and r
 The CLI loads the immutable Runroom policy and the validated consumer configuration, then generates tool configurations into a temporary directory. The generated files are:
 
 - Oxlint JSON configuration.
-- PHPMD ruleset XML and PHPCS ruleset XML.
+- PHPCS ruleset XML, including the image-owned Runroom standard.
 - Ruff command arguments/configuration, complexipy arguments, and jscpd JSON.
 - Knip JSON configuration.
 - Vulture and deptry arguments.
@@ -215,7 +215,7 @@ The following thresholds are Runroom policy and are fixed in the image.
 | Check ID | Language | Tool(s) | Policy |
 | --- | --- | --- | --- |
 | `complexity` | TS/JS | oxlint 1.82.0 | Complexity 10; max lines per function 60, skipping blank lines and comments; max parameters 4; max depth 3; max nested callbacks 3 |
-| `complexity` | PHP | phpmd 2.15.0 and squizlabs/php_codesniffer 4.0.4 | CyclomaticComplexity report level 10; ExcessiveMethodLength minimum 60; ExcessiveParameterList minimum 4; PHPCS `Generic.Metrics.NestingLevel` nesting level 3 |
+| `complexity` | PHP | squizlabs/php_codesniffer 4.0.4 with slevomat/coding-standard 8.31.1 and the Runroom standard | `Generic.Metrics.CyclomaticComplexity` complexity 10; `Generic.Metrics.NestingLevel` nesting level 3; `SlevomatCodingStandard.Functions.FunctionLength` maxLinesLength 60; `Runroom.Metrics.ParameterCount` maxParameters 4 |
 | `complexity` | Python | ruff 0.16.6 | C901 max-complexity 10; PLR0915 max-statements 60; PLR0913 max-args 4; PLR1702 max-nested-blocks 3 |
 | `cognitive` | TS/JS | fallow 3.23.0 | Cognitive complexity 15 |
 | `cognitive` | PHP | slevomat/coding-standard 8.31.1 through PHPCS | `SlevomatCodingStandard.Complexity.Cognitive` maxComplexity 15 |
@@ -231,7 +231,7 @@ The following thresholds are Runroom policy and are fixed in the image.
 
 ### Adapter contract and parser strictness
 
-Each row is implemented by one or more concrete adapters when the row lists multiple tools. For example, PHP complexity expands to a PHPMD adapter and a PHPCS adapter, and PHP unused expands to the composer-unused, composer-require-checker, and PHPStan/dead-code adapters. Each concrete adapter implements the interface, declares one `tool` stamp, writes its own snapshot, and returns one `Findings` map. The CLI’s logical check result is the conjunction of those adapters. `configFiles(ctx)` generates the policy-constrained configuration in the temp directory. `run(ctx)` invokes the declared binary, captures the native output, validates its expected schema, converts locations to anchors, and returns normalized findings. Native output is retained under `artifacts/quality/` for review.
+Each row is implemented by one or more concrete adapters when the row lists multiple tools. For example, PHP complexity uses one PHPCS adapter, and PHP unused expands to the composer-unused, composer-require-checker, and PHPStan/dead-code adapters. Each concrete adapter implements the interface, declares one `tool` stamp, writes its own snapshot, and returns one `Findings` map. The CLI’s logical check result is the conjunction of those adapters. `configFiles(ctx)` generates the policy-constrained configuration in the temp directory. `run(ctx)` invokes the declared binary, captures the native output, validates its expected schema, converts locations to anchors, and returns normalized findings. Native output is retained under `artifacts/quality/` for review.
 
 Every parser is strict. Required fields, tool-reported version/schema where available, diagnostic severity, and supported rule codes are validated. An unknown diagnostic, unexpected rule, unsupported output record, incomplete function report, invalid path, or duplicate normalized key is an error. This preserves the Bayer behavior in which an unrecognized diagnostic cannot be silently omitted from a baseline.
 
@@ -249,14 +249,13 @@ It parses Oxlint JSON diagnostics. It accepts only warning diagnostics for the s
 
 #### PHP
 
-The adapter runs PHPMD with a generated XML ruleset containing the three method thresholds and runs PHPCS with a generated XML ruleset containing `Generic.Metrics.NestingLevel` and the Slevomat cognitive rule where applicable:
+The complexity adapter runs PHPCS with a generated XML ruleset containing `Generic.Metrics.CyclomaticComplexity`, `Generic.Metrics.NestingLevel`, `SlevomatCodingStandard.Functions.FunctionLength`, and the image-owned `Runroom.Metrics.ParameterCount` sniff. Cognitive complexity remains a separate PHPCS adapter using the Slevomat cognitive rule:
 
 ```text
-phpmd <paths> json <temporary>/phpmd-ruleset.xml
 phpcs --report=json --standard=<temporary>/phpcs-ruleset.xml <paths>
 ```
 
-PHPMD JSON violations map `CyclomaticComplexity`, `ExcessiveMethodLength`, and `ExcessiveParameterList` to their measured numeric values. PHPCS JSON violations map nesting and cognitive complexity to the numeric value in the native message/report. The file and line/column location become a byte offset in the PHP source and then a tree-sitter anchor. The key is `<file> | <native rule name> | <anchor>`; the value is the reported measurement. An invalid or unsupported PHPMD/PHPCS record fails.
+PHPCS JSON violations map cyclomatic complexity, nesting, function length, parameter count, and cognitive complexity to the numeric value in the native message. The file and line/column location become a byte offset in the PHP source and then a tree-sitter anchor. The key is `<file> | <sniff source without the diagnostic suffix> | <anchor>`; the value is the reported measurement. An invalid or unsupported PHPCS record fails.
 
 #### Python
 
@@ -345,7 +344,7 @@ If the byte offset cannot identify a valid node, the grammar cannot parse the fi
 
 ### Snapshot schema
 
-Each detected concrete language/check adapter has one committed snapshot at `quality/<lang>-<check>-baseline.json`, for example `quality/ts-complexity-baseline.json`, `quality/php-complexity-phpmd-baseline.json`, or `quality/python-unused-baseline.json`. The `<check>-baseline.json` shorthand in the acceptance criteria is expanded with the language and, where a logical check uses multiple tools, the concrete adapter to prevent findings or tool stamps from sharing a file.
+Each detected concrete language/check adapter has one committed snapshot at `quality/<lang>-<check>-baseline.json`, for example `quality/ts-complexity-baseline.json`, `quality/php-complexity-baseline.json`, or `quality/python-unused-baseline.json`. The `<check>-baseline.json` shorthand in the acceptance criteria is expanded with the language and, where a logical check uses multiple tools, the concrete adapter to prevent findings or tool stamps from sharing a file.
 
 The outer snapshot is strict and has exactly these fields:
 
@@ -448,7 +447,6 @@ The v1 image uses exactly these pins:
 | TS/JS | jscpd | 5.2.0 |
 | TS/JS | knip | 6.35.1 |
 | TS/JS | dependency-cruiser | 18.2.0 |
-| PHP | phpmd | 2.15.0 |
 | PHP | squizlabs/php_codesniffer | 4.0.4 |
 | PHP | slevomat/coding-standard | 8.31.1 |
 | PHP | phpstan | 2.2.13 |

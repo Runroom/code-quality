@@ -44,9 +44,28 @@ const JS_KINDS: KindTable = {
   transparent: new Set<string>(),
 };
 
+const TS_KINDS: KindTable = {
+  functions: {
+    ...JS_FUNCTIONS,
+    function_type: "function",
+    method_signature: "method",
+    function_signature: "function",
+    abstract_method_signature: "method",
+    construct_signature: "function",
+  },
+  containers: {
+    ...JS_CONTAINERS,
+    interface_declaration: "interface",
+    type_alias_declaration: "type",
+    enum_declaration: "enum",
+  },
+  blocks: JS_BLOCKS,
+  transparent: new Set(["object_type"]),
+};
+
 export const KINDS: Record<Grammar, KindTable> = {
-  typescript: JS_KINDS,
-  tsx: JS_KINDS,
+  typescript: TS_KINDS,
+  tsx: TS_KINDS,
   javascript: JS_KINDS,
   php: {
     functions: {
@@ -111,13 +130,22 @@ function nodeName(node: Node, source: string): string | null {
   return name ? source.slice(name.startIndex, name.endIndex) : null;
 }
 
+const NAMED_ASSIGNMENT_PARENTS = new Set([
+  "variable_declarator", "property_signature", "method_signature",
+]);
+
+function pairName(node: Node, source: string): string | null {
+  const key = node.childForFieldName("key");
+  return key ? source.slice(key.startIndex, key.endIndex) : null;
+}
+
 function assignedName(node: Node, source: string): string | null {
   const parent = node.parent;
-  if (parent?.type === "variable_declarator") return nodeName(parent, source);
-  if (parent?.type === "pair") {
-    const key = parent.childForFieldName("key");
-    return key ? source.slice(key.startIndex, key.endIndex) : null;
+  if (parent && NAMED_ASSIGNMENT_PARENTS.has(parent.type)) return nodeName(parent, source);
+  if (parent?.type === "type_annotation" && parent.parent?.type === "property_signature") {
+    return nodeName(parent.parent, source);
   }
+  if (parent?.type === "pair") return pairName(parent, source);
   return null;
 }
 
@@ -135,8 +163,10 @@ function functionLabel(grammar: Grammar, node: Node, source: string, prefix: str
   if (grammar === "python" && node.type === "function_definition" && nearestPythonOwner(node) === "class") {
     return `method:${nodeName(node, source) ?? ""}`;
   }
-  const name = nodeName(node, source) ?? assignedName(node, source);
-  return name ? `${prefix}:${name}` : prefix;
+  const assigned = assignedName(node, source);
+  const name = nodeName(node, source) ?? assigned;
+  const label = node.type === "function_type" && assigned ? "method" : prefix;
+  return name ? `${label}:${name}` : label;
 }
 
 export function labelFor(grammar: Grammar, node: Node, source: string): string | null {

@@ -60,7 +60,7 @@ async function addMessages(
     }
     await addAnchoredFinding(ctx, findings, {
       file, rule: "dead-code", value: 1, line: message.line, blockMode: false,
-      anchorSuffix: `#${message.identifier}#${member}`,
+      anchorSuffix: `#${message.identifier}#${member}`, symbol: member,
     });
   }
 }
@@ -68,7 +68,13 @@ async function addMessages(
 export const phpstanDeadCodeAdapter: CheckAdapter = {
   id: "php-unused-phpstan", check: "unused", language: "php",
   tool: { bin: "phpstan", version: "2.2.13" },
-  applicability: requireVendor,
+  applicability: (config) => config.isDrupal
+    ? {
+      kind: "skip",
+      reason: "Drupal project: PHPStan dead-code analysis is skipped "
+        + "(the project's own PHPStan extensions are incompatible with the image)",
+    }
+    : requireVendor(config),
   configFiles: (ctx) => [{ path: "phpstan.neon", content: phpstanConfig(ctx) }],
   command: (ctx) => ({
     bin: "phpstan",
@@ -77,5 +83,8 @@ export const phpstanDeadCodeAdapter: CheckAdapter = {
     cwd: ctx.root,
     exitCodes: [0, 1],
   }),
-  parse: (ctx, result) => phpstanFindings(ctx, parseJsonOutput(result.stdout, "phpstan")),
+  parse: (ctx, result) => phpstanFindings(
+    ctx,
+    parseJsonOutput(result.stdout, "phpstan", result.stderr),
+  ),
 };

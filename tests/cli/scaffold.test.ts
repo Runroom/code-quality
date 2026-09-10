@@ -26,6 +26,7 @@ const roots: string[] = [];
 function config(): ResolvedConfig {
   return {
     root: "/tmp/consumer",
+    isDrupal: false,
     languages: ["ts", "python"],
     paths: { ts: ["src"], python: ["app"] },
     exclude: [],
