@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { addAnchoredFinding, fail, FindingsBuilder, relativizeFrom, toolOutput } from "../shared/kit.ts";
-import type { CheckAdapter, CheckContext, Findings } from "../shared/kit.ts";
+import type { CheckAdapter, CheckContext, ParsedFindings } from "../shared/kit.ts";
 
 const messageSchema = z.looseObject({
   message: z.string(), line: z.number().int().positive(),
@@ -25,7 +25,7 @@ const deptracSchema = z.looseObject({
 
 const MESSAGE = /^(\S+) must not depend on (\S+) \((\S+) on (\S+)\)$/u;
 
-export async function deptracFindings(ctx: CheckContext, input: unknown): Promise<Findings> {
+export async function deptracFindings(ctx: CheckContext, input: unknown): Promise<ParsedFindings> {
   const report = deptracSchema.parse(input);
   const findings = new FindingsBuilder();
   let errors = 0;
@@ -53,6 +53,7 @@ async function addMessages(
     await addAnchoredFinding(ctx, findings, {
       file, rule: `deptrac:${match[3]}-on-${match[4]}`, value: 1,
       line: diagnostic.line, blockMode: false, fallbackAnchor: match[1],
+      message: diagnostic.message,
     });
     errors += 1;
   }

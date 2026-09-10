@@ -12,6 +12,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { ADVISORY_REPORTS } from "../../src/report/advisory.ts";
 import { reportCommand } from "../../src/cli/commands/report.ts";
+import { runCli } from "../../src/cli/program.ts";
 import type { CheckContext, ToolResult } from "../../src/core/types.ts";
 import { fakeDeps } from "../helpers/fake-adapter.ts";
 
@@ -58,6 +59,11 @@ function result(stdout = "{}"): ToolResult {
   return { stdout, stderr: "", exitCode: 0 };
 }
 
+function reportMessages(output: string): string[] {
+  return ["fallow-health", "fallow-dupes", "jscpd-html"]
+    .map((id) => `Report ${id}: ${join(output, id)}\n`);
+}
+
 afterEach(() => {
   for (const root of roots) rmSync(root, { recursive: true, force: true });
   roots.length = 0;
@@ -93,6 +99,7 @@ describe("advisory reports", () => {
   it("runs valid reports and returns one when a tool fails", async () => {
     const root = configRoot("ts");
     const run = fakeDeps();
+    const messages: string[] = [];
     run.verify = () => {};
     run.spawn = (invocation) => {
       const outputFlag = invocation.args.indexOf("--output");
@@ -105,10 +112,17 @@ describe("advisory reports", () => {
     };
     const deps = {
       registry: [], run, env: {}, cwd: root,
-      stdout: () => {}, stderr: () => {},
+      stdout: (value: string) => messages.push(value), stderr: () => {},
     };
     expect(await reportCommand(deps)).toBe(0);
-    expect(readFileSync(join(root, "artifacts/quality/fallow-health/fallow-health.json"), "utf8")).toBe("{}");
+    const defaultOutput = join(root, "artifacts/quality");
+    expect(readFileSync(join(defaultOutput, "fallow-health/fallow-health.json"), "utf8")).toBe("{}");
+    expect(messages).toEqual(reportMessages(defaultOutput));
+    messages.length = 0;
+    expect(await runCli(["node", "code-quality", "report", "--output", "reports"], deps)).toBe(0);
+    const customOutput = join(root, "reports");
+    expect(readFileSync(join(customOutput, "fallow-health/fallow-health.json"), "utf8")).toBe("{}");
+    expect(messages).toEqual(reportMessages(customOutput));
     run.spawn = () => { throw new Error("tool failed"); };
     expect(await reportCommand({ ...deps, run })).toBe(1);
   });

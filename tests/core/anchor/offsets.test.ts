@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   byteOffsetToIndex,
+  byteOffsetToLineColumn,
   firstNonBlankByteOffset,
   lineColumnToByteOffset,
 } from "../../../src/core/anchor/offsets.ts";
@@ -25,5 +26,13 @@ describe("anchor offsets", () => {
 
   it("converts a UTF-8 byte offset to a string index", () => {
     expect(byteOffsetToIndex("é1", 2)).toBe(1);
+  });
+
+  it("converts a byte offset to a one-based line and character column", () => {
+    expect(byteOffsetToLineColumn("one\ntwo", 5)).toEqual({ line: 2, column: 2 });
+    expect(byteOffsetToLineColumn("éx\nfoo", Buffer.byteLength("éx\nf"))).toEqual({
+      line: 2,
+      column: 2,
+    });
   });
 });

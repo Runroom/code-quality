@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { addAnchoredFinding, excludeGlobs, extractMeasurement, fail, FindingsBuilder, POLICY, relativizeFrom, toolOutput } from "../shared/kit.ts";
-import type { CheckAdapter, CheckContext, Findings } from "../shared/kit.ts";
+import type { CheckAdapter, CheckContext, ParsedFindings } from "../shared/kit.ts";
 
 const RULE_ID = "CC001";
 const MESSAGE = /has a cognitive complexity of (\d+),/u;
@@ -12,7 +12,10 @@ const resultSchema = z.looseObject({
   locations: z.array(z.looseObject({
     physicalLocation: z.looseObject({
       artifactLocation: z.looseObject({ uri: z.string() }),
-      region: z.looseObject({ startLine: z.number().int().positive() }),
+      region: z.looseObject({
+        startLine: z.number().int().positive(),
+        startColumn: z.number().int().positive().optional(),
+      }),
     }),
   })).min(1),
 });
@@ -27,7 +30,7 @@ const sarifSchema = z.looseObject({
   })).length(1),
 });
 
-export async function complexipyFindings(ctx: CheckContext, input: unknown): Promise<Findings> {
+export async function complexipyFindings(ctx: CheckContext, input: unknown): Promise<ParsedFindings> {
   const report = sarifSchema.parse(input);
   const findings = new FindingsBuilder();
   for (const result of report.runs[0]!.results) {
@@ -40,7 +43,9 @@ export async function complexipyFindings(ctx: CheckContext, input: unknown): Pro
     }
     await addAnchoredFinding(ctx, findings, {
       file, rule: "cognitive-complexity", value,
-      line: location.region.startLine, blockMode: false,
+      line: location.region.startLine,
+      ...(location.region.startColumn === undefined ? {} : { column: location.region.startColumn }),
+      message: result.message.text, threshold: POLICY.cognitive, blockMode: false,
     });
   }
   return findings.build();

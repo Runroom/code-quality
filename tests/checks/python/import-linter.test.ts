@@ -31,22 +31,27 @@ describe("import-linter synthetic parser", () => {
   });
 
   it("returns no findings when every contract is kept", () => {
-    expect(importLinterFindings(ctx, output("KEPT", "Contracts: 1 kept, 0 broken.")))
+    expect(importLinterFindings(ctx, output("KEPT", "Contracts: 1 kept, 0 broken.")).findings)
       .toEqual({});
   });
 
   it("parses undeclared-module lines", () => {
     const text = `${output()}Broken contracts\nLayers\nThe following modules are not listed as layers:\n- demo_app.client\n`;
-    expect(importLinterFindings(ctx, text)).toHaveProperty(
-      "src/demo_app/client.py | import-linter:Layers:undeclared | demo_app.client", 1,
-    );
+    const parsed = importLinterFindings(ctx, text);
+    const key = "src/demo_app/client.py | import-linter:Layers:undeclared | demo_app.client";
+    expect(parsed.findings).toHaveProperty(key, 1);
+    expect(parsed.details[key]?.message).toBe("demo_app.client is not declared in Layers");
   });
 
   it("uses a module identifier key when the lower module cannot be resolved", () => {
     const text = output().replaceAll("demo_app.domain.model", "missing.domain.model");
-    expect(importLinterFindings(ctx, text)).toEqual({
+    const parsed = importLinterFindings(ctx, text);
+    expect(parsed.findings).toEqual({
       "missing.domain.model | import-linter:Layers:unresolved | demo_app.infra.db": 1,
     });
+    const key = "missing.domain.model | import-linter:Layers:unresolved | demo_app.infra.db";
+    expect(parsed.details[key]?.message)
+      .toBe("missing.domain.model is not allowed to import demo_app.infra.db (Layers)");
   });
 
   it("rejects broken_contract_guidance free text", () => {
@@ -59,8 +64,13 @@ describe("import-linter captured fixture", () => {
   it("finds the Layers violation", () => {
     const parsed = importLinterFindings(checkContext(root, "python"),
       readFileSync(nativeFile, "utf8"));
-    expect(parsed).toEqual({
+    expect(parsed.findings).toEqual({
       "src/demo_app/domain/model.py | import-linter:Layers | demo_app.infra.db": 1,
+    });
+    const key = "src/demo_app/domain/model.py | import-linter:Layers | demo_app.infra.db";
+    expect(parsed.details[key]).toMatchObject({
+      line: 1,
+      message: "demo_app.domain.model is not allowed to import demo_app.infra.db (Layers)",
     });
   });
 });

@@ -60,11 +60,3 @@ jobs:
         run: |
           read -ra CHECKS <<< "$CODE_QUALITY_CHECKS"
           code-quality check "${CHECKS[@]}"
-      - name: Upload artifacts
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: code-quality
-          path: ${{ inputs.working-directory }}/artifacts/quality/
-          retention-days: 14
-          if-no-files-found: ignore

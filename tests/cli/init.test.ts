@@ -92,7 +92,7 @@ describe("init command", () => {
     expect(existsSync(join(root, "quality/ts-alpha-baseline.json"))).toBe(true);
     expect(existsSync(join(root, ".github/workflows/quality.yml"))).toBe(true);
     expect(existsSync(join(root, "Makefile"))).toBe(true);
-    expect(output.join("")).toContain("Updated .gitignore (artifacts/quality/, .code-quality-tmp/)\n");
+    expect(output.join("")).toContain("Updated .gitignore (artifacts/quality/)\n");
 
     expect(await runCli(
       ["node", "code-quality", "init"],
@@ -103,6 +103,21 @@ describe("init command", () => {
     expect(existsSync(join(root, "quality/ts-beta-baseline.json"))).toBe(true);
     expect(output.join("")).toContain("Kept existing: quality/ts-alpha-baseline.json\n");
     expect(errors.join(" ")).not.toContain("already exists");
+  });
+
+  it("keeps init artifacts in the requested directory", async () => {
+    const root = mkdtempSync(join(tmpdir(), "code-quality-init-artifacts-"));
+    roots.push(root);
+    mkdirSync(join(root, "src"));
+    writeFileSync(join(root, "src/index.ts"), "", "utf8");
+    writeFileSync(join(root, "package.json"), "{}", "utf8");
+    const errors: string[] = [];
+
+    expect(await runCli(
+      ["node", "code-quality", "init", "--artifacts", "evidence"],
+      command(root, errors),
+    )).toBe(0);
+    expect(existsSync(join(root, "evidence", "ts-alpha", "stdout.log"))).toBe(true);
   });
 
 });
@@ -197,6 +212,7 @@ describe("init discovered configuration", () => {
     expect(output.join(" ")).toContain(
       "Notice: ts: no ts sources under src; using detected roots common, plugin-src, ui-src",
     );
+    expect(output.at(-1)).toBe("code-quality: PASS (1 checks)\n");
     expect(errors).toEqual([]);
   });
 });

@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -21,16 +21,33 @@ describe("summaryMarkdown", () => {
 });
 
 describe("writeSummary", () => {
-  it("writes comparison JSON and Markdown under the adapter artifact directory", () => {
+  it("only appends Markdown when a GitHub step summary is configured", () => {
     const root = mkdtempSync(join(tmpdir(), "code-quality-summary-"));
     try {
-      writeSummary(root, { id: "ts-fake", ok: true, count: 1, regressions: [], stale: [] }, false);
-      expect(readFileSync(join(root, "artifacts/quality/ts-fake/comparison.json"), "utf8")).toBe(
-        '{\n  "count": 1,\n  "regressions": [],\n  "stale": []\n}\n',
-      );
-      expect(readFileSync(join(root, "artifacts/quality/ts-fake/summary.md"), "utf8")).toContain(
-        "### ts-fake",
-      );
+      const stepSummary = join(root, "step-summary.md");
+      const outcome = {
+        id: "ts-fake", ok: true, count: 1, regressions: [], stale: [],
+        details: {}, tool: "node 0.0.0",
+      };
+      writeSummary(outcome, false, {});
+      expect(existsSync(join(root, "artifacts"))).toBe(false);
+      writeSummary(outcome, false, { GITHUB_STEP_SUMMARY: stepSummary });
+      expect(readFileSync(stepSummary, "utf8")).toContain("### ts-fake");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("creates a missing GitHub step summary directory", () => {
+    const root = mkdtempSync(join(tmpdir(), "code-quality-summary-"));
+    try {
+      const stepSummary = join(root, "artifacts", "step-summary.md");
+      const outcome = {
+        id: "ts-fake", ok: true, count: 1, regressions: [], stale: [],
+        details: {}, tool: "node 0.0.0",
+      };
+      writeSummary(outcome, false, { GITHUB_STEP_SUMMARY: stepSummary });
+      expect(readFileSync(stepSummary, "utf8")).toContain("### ts-fake");
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

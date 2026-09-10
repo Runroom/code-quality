@@ -17,7 +17,7 @@ export { xml } from "./xml.ts";
 export type {
   CheckAdapter,
   CheckContext,
-  Findings,
+  ParsedFindings,
   GeneratedFile,
   ToolInvocation,
 } from "../../core/types.ts";

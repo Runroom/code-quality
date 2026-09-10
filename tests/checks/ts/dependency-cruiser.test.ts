@@ -31,7 +31,7 @@ describe("dependency-cruiser synthetic parser", () => {
   });
 
   it("ignores ignore-severity violations", () => {
-    expect(dependencyCruiserFindings(checkContext("/r"), report("ignore"))).toEqual({});
+    expect(dependencyCruiserFindings(checkContext("/r"), report("ignore")).findings).toEqual({});
   });
 
   it("rejects malformed rules", () => {
@@ -50,11 +50,14 @@ describe("dependency-cruiser synthetic parser", () => {
 
 describe("dependency-cruiser captured fixture", () => {
   it("finds the ui to db violation", () => {
-    const findings = dependencyCruiserFindings(
+    const { findings, details } = dependencyCruiserFindings(
       checkContext(root),
       JSON.parse(readFileSync(nativeFile, "utf8")),
     );
     expect(Object.keys(findings).some((key) => key.includes("ignored.test.ts"))).toBe(false);
     expect(findings).toEqual({ "src/ui/view.ts | no-ui-to-db | src/db/repo.ts": 1 });
+    expect(details["src/ui/view.ts | no-ui-to-db | src/db/repo.ts"]).toMatchObject({
+      message: "src/ui/view.ts must not import src/db/repo.ts (rule no-ui-to-db)",
+    });
   });
 });

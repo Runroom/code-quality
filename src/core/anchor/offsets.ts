@@ -36,3 +36,16 @@ export function byteOffsetToIndex(source: string, byteOffset: number): number {
   }
   return Buffer.from(source).subarray(0, byteOffset).toString().length;
 }
+
+export function byteOffsetToLineColumn(
+  source: string,
+  byteOffset: number,
+): { line: number; column: number } {
+  const index = byteOffsetToIndex(source, byteOffset);
+  const prefix = source.slice(0, index);
+  const lineStart = prefix.lastIndexOf("\n") + 1;
+  return {
+    line: prefix.split("\n").length,
+    column: index - lineStart + 1,
+  };
+}

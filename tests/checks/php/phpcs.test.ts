@@ -63,10 +63,10 @@ describe("phpcs config and synthetic parser", () => {
   });
 
   it("skips PHPCS internal notices", async () => {
-    await expect(phpcsFindings(
+    expect((await phpcsFindings(
       checkContext("/r", "php", { "src/a.php": source }),
       report("Internal.NoCodeFound", "No PHP code was found"), nestingRule,
-    )).resolves.toEqual({});
+    )).findings).toEqual({});
   });
 
   it("rejects a nesting message without a number", async () => {
@@ -86,7 +86,7 @@ describe("phpcs config and synthetic parser", () => {
   });
 
   it("normalizes all four complexity sniff measurements", async () => {
-    const parsed = await phpcsComplexityAdapter.parse(
+    const { findings: parsed } = await phpcsComplexityAdapter.parse(
       checkContext("/r", "php", { "src/a.php": source }),
       { stdout: JSON.stringify(complexityReport()), stderr: "", exitCode: 1 },
     );
@@ -103,9 +103,14 @@ const complexityFixture = resolve("tests/fixtures/native/php-complexity/stdout.j
 
 describe.skipIf(!existsSync(complexityFixture))("PHP complexity captured fixture", () => {
   it("finds all four Complex::run metrics", async () => {
-    const parsed = await phpcsComplexityAdapter.parse(
+    const capturedReport = JSON.parse(readFileSync(complexityFixture, "utf8")) as {
+      files: Record<string, { messages: Array<{
+        source: string; message: string; line: number; column: number;
+      }> }>;
+    };
+    const { findings: parsed, details } = await phpcsComplexityAdapter.parse(
       checkContext(root, "php"),
-      { stdout: readFileSync(complexityFixture, "utf8"), stderr: "", exitCode: 1 },
+      { stdout: JSON.stringify(capturedReport), stderr: "", exitCode: 1 },
     );
     expect(parsed).toEqual({
       "src/Service/Complex.php | Generic.Metrics.CyclomaticComplexity | /class:Complex/method:run": 12,
@@ -113,18 +118,41 @@ describe.skipIf(!existsSync(complexityFixture))("PHP complexity captured fixture
       "src/Service/Complex.php | Runroom.Metrics.ParameterCount | /class:Complex/method:run": 5,
       "src/Service/Complex.php | SlevomatCodingStandard.Functions.FunctionLength | /class:Complex/method:run": 66,
     });
+    const message = capturedReport.files["/work/src/Service/Complex.php"]!.messages.find(
+      (entry) => entry.source === "Generic.Metrics.CyclomaticComplexity.TooHigh",
+    )!;
+    expect(details["src/Service/Complex.php | Generic.Metrics.CyclomaticComplexity | /class:Complex/method:run"])
+      .toMatchObject({
+        line: message.line,
+        column: message.column,
+        message: message.message,
+        threshold: POLICY.complexity,
+      });
   });
 });
 
 describe("cognitive complexity captured fixture", () => {
   it("finds the Complex::run cognitive complexity violation", async () => {
     const nativeFile = resolve("tests/fixtures/native/php-cognitive/stdout.json");
-    const parsed = await phpcsFindings(
-      checkContext(root, "php"), JSON.parse(readFileSync(nativeFile, "utf8")) as unknown,
+    const capturedReport = JSON.parse(readFileSync(nativeFile, "utf8")) as {
+      files: Record<string, { messages: Array<{
+        source: string; message: string; line: number; column: number;
+      }> }>;
+    };
+    const { findings: parsed, details } = await phpcsFindings(
+      checkContext(root, "php"), capturedReport,
       cognitiveRule,
     );
     expect(parsed).toEqual({
       "src/Service/Complex.php | cognitive-complexity | /class:Complex/method:run": 17,
     });
+    const message = capturedReport.files["/work/src/Service/Complex.php"]!.messages[0]!;
+    expect(details["src/Service/Complex.php | cognitive-complexity | /class:Complex/method:run"])
+      .toMatchObject({
+        line: message.line,
+        column: message.column,
+        message: message.message,
+        threshold: POLICY.cognitive,
+      });
   });
 });

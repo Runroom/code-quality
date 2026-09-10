@@ -14,7 +14,7 @@ import {
   parseJsonOutput,
   relativize,
 } from "../shared/kit.ts";
-import type { CheckAdapter, CheckContext, Findings, GeneratedFile } from "../shared/kit.ts";
+import type { CheckAdapter, CheckContext, GeneratedFile, ParsedFindings } from "../shared/kit.ts";
 
 const itemSchema = z.looseObject({
   name: z.string(),
@@ -123,6 +123,13 @@ function rejectUnknown(issue: z.infer<typeof issueSchema>): void {
   }
 }
 
+function optionalLocation(item: z.infer<typeof itemSchema>): { line?: number; column?: number } {
+  return {
+    ...(item.line === undefined ? {} : { line: item.line }),
+    ...(item.col === undefined ? {} : { column: item.col }),
+  };
+}
+
 async function exportAnchor(
   ctx: CheckContext,
   file: string,
@@ -145,7 +152,10 @@ function addFiles(ctx: CheckContext, issue: z.infer<typeof issueSchema>, out: Fi
   for (const item of issue.files ?? []) {
     const file = relativize(ctx.root, item.name);
     assertInScope(file, ctx.paths);
-    out.add(file, "unused-file", file, 1);
+    out.add({ file, rule: "unused-file", anchor: file, value: 1,
+      ...optionalLocation(item),
+      message: "unused file",
+    });
   }
 }
 
@@ -158,7 +168,10 @@ async function addExports(
   for (const item of [...(issue.exports ?? []), ...(issue.types ?? [])]) {
     assertInScope(file, ctx.paths);
     const anchor = await exportAnchor(ctx, file, item);
-    out.add(file, "unused-export", `${anchor}#${item.name}`, 1);
+    out.add({ file, rule: "unused-export", anchor: `${anchor}#${item.name}`, value: 1,
+      ...optionalLocation(item),
+      message: `unused export '${item.name}'`,
+    });
   }
 }
 
@@ -170,11 +183,14 @@ function addDependencies(
   for (const item of [...(issue.dependencies ?? []), ...(issue.devDependencies ?? [])]) {
     const file = relativize(ctx.root, issue.file);
     assertInScope(file, [], ["package.json", "**/package.json"]);
-    out.add(file, "unused-dependency", item.name, 1);
+    out.add({ file, rule: "unused-dependency", anchor: item.name, value: 1,
+      ...optionalLocation(item),
+      message: `unused dependency '${item.name}'`,
+    });
   }
 }
 
-export async function knipFindings(ctx: CheckContext, input: unknown): Promise<Findings> {
+export async function knipFindings(ctx: CheckContext, input: unknown): Promise<ParsedFindings> {
   const report = knipSchema.parse(input);
   const findings = new FindingsBuilder();
   for (const issue of report.issues) {

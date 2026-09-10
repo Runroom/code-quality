@@ -31,10 +31,11 @@ function comparisonFor(
 
 function outcomeFor(
   adapter: CheckAdapter,
-  current: Snapshot,
+  run: Awaited<ReturnType<typeof runAdapter>>,
   comparison: Comparison | undefined,
   decision: Decision,
 ): GateOutcome {
+  const current = run.snapshot;
   const regressions = comparison?.regressions ?? [];
   const stale = comparison?.stale ?? [];
   return {
@@ -43,6 +44,9 @@ function outcomeFor(
     count: findingCount(adapter, current.findings),
     regressions,
     stale,
+    details: run.details,
+    tool: `${adapter.tool.bin} ${adapter.tool.version}`,
+    ...(run.duplicates === undefined ? {} : { duplicates: run.duplicates }),
     ...(decision.action === "fail" ? { message: decision.message } : {}),
   };
 }
@@ -69,17 +73,18 @@ export async function executeGate(
   mode: Mode,
   deps: RunDeps,
 ): Promise<GateOutcome> {
-  const current = await runAdapter(adapter, config, deps);
+  const run = await runAdapter(adapter, config, deps);
+  const current = run.snapshot;
   const file = join(config.root, baselineFile(adapter));
   const exists = existsSync(file);
   const baseline = readBaseline(file, mode, exists);
   const comparison = comparisonFor(baseline, current);
   const decision = decide({ mode, exists, baseline, current, comparison, id: adapter.id });
   applyInitialization(file, current, decision);
-  const outcome = pendingUpdate(outcomeFor(adapter, current, comparison, decision),
+  const outcome = pendingUpdate(outcomeFor(adapter, run, comparison, decision),
     file, current, decision);
   if (decision.action !== "fail" || comparison !== undefined) {
-    writeSummary(config.root, outcome, adapter.check === "duplication", deps.env);
+    writeSummary(outcome, adapter.check === "duplication", deps.env);
   }
   return outcome;
 }

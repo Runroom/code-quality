@@ -34,7 +34,7 @@ describe("fallow synthetic parser", () => {
     const input = fallowReport({
       findings: [{ path: "src/a.ts", name: "nested", cognitive: 15, line: 1, col: 16 }],
     });
-    await expect(fallowFindings(ctx, input)).resolves.toEqual({});
+    expect((await fallowFindings(ctx, input)).findings).toEqual({});
   });
 
   it("derives advisory settings from policy", () => {
@@ -54,7 +54,7 @@ describe("fallow synthetic parser", () => {
     const input = fallowReport({
       findings: [{ path: "scripts/a.ts", name: "nested", cognitive: 16, line: 1, col: 16 }],
     });
-    await expect(fallowFindings(ctx, input)).resolves.toEqual({});
+    expect((await fallowFindings(ctx, input)).findings).toEqual({});
   });
 
   it("rejects a tool version mismatch", async () => {
@@ -82,7 +82,7 @@ describe("fallow synthetic parser", () => {
         findings: [{ path: "src/a.ts", name: "nested", cognitive: 16, line: 2, col: 16 }],
       }),
     );
-    expect(Object.keys(shifted)).toEqual(Object.keys(original));
+    expect(Object.keys(shifted.findings)).toEqual(Object.keys(original.findings));
   });
 });
 
@@ -107,14 +107,14 @@ describe("fallow captured fixture", () => {
       findings: [{ path: "src/a.ts", name: "busy", cognitive: 21, line: 1, col: 7 }],
     });
     const busySource = "export function busy(): number { return 1; }\n";
-    await expect(fallowFindings(
+    expect((await fallowFindings(
       checkContext("/r", "ts", { "src/a.ts": busySource }),
       input,
-    )).resolves.toEqual({ "src/a.ts | cognitive-complexity | /function:busy": 21 });
+    )).findings).toEqual({ "src/a.ts | cognitive-complexity | /function:busy": 21 });
   });
 
   it("contains the captured busy and nested findings above 15", async () => {
-    const findings = await fallowFindings(
+    const { findings, details } = await fallowFindings(
       checkContext(root),
       JSON.parse(readFileSync(nativeFile, "utf8")),
     );
@@ -124,5 +124,11 @@ describe("fallow captured fixture", () => {
       "src/cognitive.ts | cognitive-complexity | /function:nested",
       "src/complexity.ts | cognitive-complexity | /function:busy",
     ]);
+    expect(details["src/complexity.ts | cognitive-complexity | /function:busy"]).toMatchObject({
+      line: 1,
+      column: 8,
+      message: "Function 'busy' has a cognitive complexity of 21. Maximum allowed is 15.",
+      threshold: POLICY.cognitive,
+    });
   });
 });

@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { z } from "zod";
 
 import { addAnchoredFinding, excludeGlobs, extractMeasurement, fail, FindingsBuilder, parseJsonOutput, POLICY, relativizeFrom } from "../shared/kit.ts";
-import type { CheckAdapter, CheckContext, Findings } from "../shared/kit.ts";
+import type { CheckAdapter, CheckContext, ParsedFindings } from "../shared/kit.ts";
 
 const METRICS: Record<string, RegExp> = {
   C901: new RegExp(`is too complex \\((\\d+) > ${POLICY.complexity}\\)`, "u"),
@@ -34,7 +34,7 @@ max-nested-blocks = ${POLICY.maxDepth}
 `;
 }
 
-export async function ruffFindings(ctx: CheckContext, input: unknown): Promise<Findings> {
+export async function ruffFindings(ctx: CheckContext, input: unknown): Promise<ParsedFindings> {
   const report = reportSchema.parse(input);
   const findings = new FindingsBuilder();
   for (const diagnostic of report) {
@@ -44,7 +44,8 @@ export async function ruffFindings(ctx: CheckContext, input: unknown): Promise<F
     const value = extractMeasurement(pattern, diagnostic.message, diagnostic.code);
     await addAnchoredFinding(ctx, findings, {
       file, rule: diagnostic.code, value, line: diagnostic.location.row,
-      column: diagnostic.location.column, blockMode: diagnostic.code === "PLR1702",
+      column: diagnostic.location.column, message: diagnostic.message,
+      blockMode: diagnostic.code === "PLR1702",
     });
   }
   return findings.build();

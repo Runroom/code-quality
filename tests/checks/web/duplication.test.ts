@@ -7,7 +7,6 @@ import { afterEach, describe, expect, it } from "vitest";
 import { jscpdFindings } from "../../../src/checks/shared/jscpd.ts";
 import { checkContext } from "../../helpers/check-context.ts";
 
-const root = resolve("fixtures/web-project");
 const nativeDir = resolve("tests/fixtures/native/web-duplication");
 const nativeBaseline = join(nativeDir, "jscpd-current.json");
 let temporary: string | undefined;
@@ -24,8 +23,15 @@ describe.skipIf(!existsSync(nativeBaseline))("web duplication captured fixture",
     writeFileSync(join(temporary, "jscpd", "jscpd-report.json"),
       readFileSync(join(nativeDir, "jscpd-report.json")));
     writeFileSync(join(temporary, "jscpd-current.json"), readFileSync(nativeBaseline));
-    const ctx = checkContext(root, "web");
+    const ctx = checkContext("/work", "web");
     ctx.artifactDir = temporary;
-    expect(Object.keys(jscpdFindings(ctx)).length).toBeGreaterThan(0);
+    ctx.tempDir = temporary;
+    const parsed = jscpdFindings(ctx);
+    expect(Object.keys(parsed.findings).length).toBeGreaterThan(0);
+    expect(parsed.duplicates?.[0]).toEqual({
+      file: "assets/other.scss", line: 1, endLine: 12,
+      secondFile: "assets/styles.scss", secondLine: 1, secondEndLine: 12,
+      lines: 12, tokens: 83, isNew: true,
+    });
   });
 });

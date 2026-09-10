@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { z } from "zod";
 
 import { addAnchoredFinding, excludeGlobs, fail, FindingsBuilder, isInScope, parseJsonOutput, POLICY, relativize } from "../shared/kit.ts";
-import type { CheckAdapter, CheckContext, Findings } from "../shared/kit.ts";
+import type { CheckAdapter, CheckContext, ParsedFindings } from "../shared/kit.ts";
 
 const fallowSchema = z.looseObject({
   kind: z.literal("health"),
@@ -37,7 +37,7 @@ function fallowConfig(ctx: CheckContext): string {
   }, null, 2);
 }
 
-export async function fallowFindings(ctx: CheckContext, input: unknown): Promise<Findings> {
+export async function fallowFindings(ctx: CheckContext, input: unknown): Promise<ParsedFindings> {
   const error = fallowErrorSchema.safeParse(input);
   if (error.success) return fail(error.data.message);
   const report = fallowSchema.parse(input);
@@ -52,6 +52,9 @@ export async function fallowFindings(ctx: CheckContext, input: unknown): Promise
     await addAnchoredFinding(ctx, findings, {
       file, rule: "cognitive-complexity", value: finding.cognitive,
       line: finding.line, column: finding.col + 1, blockMode: false, symbol: finding.name,
+      message: `Function '${finding.name}' has a cognitive complexity of ${finding.cognitive}. `
+        + `Maximum allowed is ${POLICY.cognitive}.`,
+      threshold: POLICY.cognitive,
     });
   }
   return findings.build();

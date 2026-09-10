@@ -27,7 +27,7 @@ describe("vulture synthetic parser", () => {
       "src/a.py:2: unreachable code after 'return' (100% confidence)",
       "src/a.py:2: unsatisfiable 'False' condition (100% confidence)",
     ];
-    const parsed = await vultureFindings(ctx, [...unused, ...special].join("\n"));
+    const { findings: parsed } = await vultureFindings(ctx, [...unused, ...special].join("\n"));
     const rules = Object.keys(parsed).map((key) => key.split(" | ")[1]);
     expect(new Set(rules)).toEqual(new Set([...categories.map((value) => `vulture-${value}`),
       "vulture-unreachable_code", "vulture-unsatisfiable_condition"]));
@@ -45,12 +45,16 @@ describe("vulture captured fixture", () => {
     const parsed = await vultureFindings(
       checkContext(root, "python"), readFileSync(nativeFile, "utf8"),
     );
-    expect(parsed).toEqual({
+    expect(parsed.findings).toEqual({
       "src/demo_app/client.py | vulture-function | /function:get_client#get_client": 1,
       "src/demo_app/complex.py | vulture-function | /function:busy#busy": 1,
       "src/demo_app/dead.py | vulture-import | /#os": 1,
       "src/demo_app/dead.py | vulture-function | /function:unused_fn#unused_fn": 1,
       "src/demo_app/domain/model.py | vulture-function | /function:load_model#load_model": 1,
+    });
+    const key = "src/demo_app/client.py | vulture-function | /function:get_client#get_client";
+    expect(parsed.details[key]).toMatchObject({
+      line: 4, message: "unused function 'get_client' (60% confidence)",
     });
   });
 });

@@ -23,8 +23,15 @@ describe("php duplication captured fixture", () => {
       readFileSync(join(nativeDir, "jscpd-report.json")));
     writeFileSync(join(temporary, "jscpd-current.json"),
       readFileSync(join(nativeDir, "jscpd-current.json")));
-    const ctx = checkContext("/r", "php");
+    const ctx = checkContext("/work", "php");
     ctx.artifactDir = temporary;
-    expect(jscpdFindings(ctx)).toEqual({ "4e1f30eae51b9473": 1 });
+    ctx.tempDir = temporary;
+    const parsed = jscpdFindings(ctx);
+    expect(parsed.findings).toEqual({ "4e1f30eae51b9473": 1 });
+    expect(parsed.duplicates?.[0]).toEqual({
+      file: "src/Service/Complex.php", line: 55, endLine: 83,
+      secondFile: "src/Service/Complex.php", secondLine: 56, secondEndLine: 84,
+      lines: 29, tokens: 174, isNew: true,
+    });
   });
 });

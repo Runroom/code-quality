@@ -32,7 +32,7 @@ describe("composer tool synthetic parsers", () => {
       stderr: "",
       exitCode: 0,
     });
-    expect(Object.keys(findings)).toHaveLength(2);
+    expect(Object.keys(findings.findings)).toHaveLength(2);
   });
 
   it("rejects a require-checker version mismatch", () => {
@@ -56,11 +56,11 @@ describe("composer tool synthetic parsers", () => {
 
   it("skips require-checker when no symbols are found", async () => {
     const context = checkContext("/r", "php");
-    await expect(requireCheckerAdapter.parse(context, {
+    expect((await requireCheckerAdapter.parse(context, {
       stdout: "",
       stderr: "There were no symbols found, please check your configuration",
       exitCode: 1,
-    })).resolves.toEqual({});
+    })).findings).toEqual({});
     expect(context.config.notices).toContain(
       "composer-require-checker found no symbols to analyse "
         + "(composer.json autoload does not cover the configured paths); check skipped",
@@ -89,11 +89,18 @@ for (const fixture of [
 ]) {
   const nativeFile = resolve(`tests/fixtures/native/${fixture.id}/stdout.json`);
   describe(`${fixture.id} captured fixture`, () => {
-    it("produces the exact package findings", () => {
+    it("produces the exact package findings and details", () => {
       const input = JSON.parse(readFileSync(nativeFile, "utf8")) as unknown;
       const parsed = fixture.id.endsWith("composer-unused")
         ? composerUnusedFindings(input) : requireCheckerFindings(input);
-      expect(parsed).toEqual(fixture.expected);
+      expect(parsed.findings).toEqual(fixture.expected);
+      const key = fixture.id.endsWith("composer-unused")
+        ? "composer.json | unused-package | psr/log"
+        : "composer.json | unknown-symbol | Composer\\InstalledVersions";
+      const message = fixture.id.endsWith("composer-unused")
+        ? "unused package 'psr/log'"
+        : "unknown symbol 'Composer\\InstalledVersions'";
+      expect(parsed.details[key]).toMatchObject({ message });
     });
   });
 }

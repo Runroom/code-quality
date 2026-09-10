@@ -66,8 +66,8 @@ describe("executeGate initialization", () => {
 
     const equal = await executeGate(initial, config, "check", fakeDeps());
     expect(equal).toMatchObject({ ok: true, regressions: [], stale: [] });
-    expect(existsSync(join(root, "artifacts/quality/ts-fake/comparison.json"))).toBe(true);
-    expect(existsSync(join(root, "artifacts/quality/ts-fake/summary.md"))).toBe(true);
+    expect(existsSync(join(root, "artifacts"))).toBe(false);
+    expect(equal).toMatchObject({ details: {}, tool: "node 0.0.0" });
   });
 });
 
@@ -82,7 +82,9 @@ describe("executeGate comparisons", () => {
     const increased = fakeAdapter({ id: "ts-fake", findings: { key: 2 } });
     const checked = await executeGate(increased, config, "check", fakeDeps());
     expect(checked).toMatchObject({ ok: false });
-    expect(checked.regressions).toContain("key: 1 → 2");
+    expect(checked.regressions).toContainEqual({
+      key: "key", kind: "worsened", previous: 1, value: 2,
+    });
     expect(readFileSync(file, "utf8")).toBe(bytes);
     const updated = await executeGate(increased, config, "update", fakeDeps());
     expect(updated.ok).toBe(false);
@@ -97,7 +99,7 @@ describe("executeGate comparisons", () => {
     const reduced = fakeAdapter({ id: "ts-fake", findings: { key: 1 } });
     const checked = await executeGate(reduced, config, "check", fakeDeps());
     expect(checked.ok).toBe(false);
-    expect(checked.message).toContain("cleanup detected");
+    expect(checked.message).toContain("2 stale entries");
     const updated = await executeGate(reduced, config, "update", fakeDeps());
     expect(updated.ok).toBe(true);
     expect(updated.pendingWrite).toMatchObject({ file: join(root, "quality/ts-fake-baseline.json") });

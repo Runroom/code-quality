@@ -14,14 +14,30 @@ jobs:
     uses: Runroom/code-quality/.github/workflows/quality.yml@v1
 `;
 
-export const MAKEFILE_SNIPPET = `quality:
-\tdocker run --rm -v "$$PWD:/work" ghcr.io/runroom/code-quality:v1 check
+export const MAKEFILE_SNIPPET = `# code-quality — run these through make; \`$$PWD\` is Make escaping for \`$PWD\`
+CODE_QUALITY_IMAGE ?= ghcr.io/runroom/code-quality:v1
+# Must be a single image reference; it is interpolated into docker run unquoted.
+CODE_QUALITY = docker run --rm -v "$$PWD:/work" $(CODE_QUALITY_IMAGE)
+
+.PHONY: quality quality-all quality-baseline quality-report quality-doctor
+
+quality:
+	$(CODE_QUALITY) check
+
+quality-all:
+	$(CODE_QUALITY) check --all
 
 quality-baseline:
-\tdocker run --rm -v "$$PWD:/work" ghcr.io/runroom/code-quality:v1 baseline
+	$(CODE_QUALITY) baseline
+
+quality-report:
+	$(CODE_QUALITY) report
+
+quality-doctor:
+	$(CODE_QUALITY) doctor
 `;
 
-const QUALITY_GITIGNORE_ENTRIES = ["artifacts/quality/", ".code-quality-tmp/"] as const;
+const QUALITY_GITIGNORE_ENTRIES = ["artifacts/quality/"] as const;
 const QUALITY_GITIGNORE_COMMENT = "# code-quality";
 
 function configPaths(config: ResolvedConfig): Partial<Record<Language, string[]>> {
@@ -67,7 +83,7 @@ function writeGitignore(root: string, log: (value: string) => void): void {
       `${QUALITY_GITIGNORE_COMMENT}\n${QUALITY_GITIGNORE_ENTRIES.join("\n")}\n`,
       "utf8",
     );
-    log("Updated .gitignore (artifacts/quality/, .code-quality-tmp/)");
+    log("Updated .gitignore (artifacts/quality/)");
     return;
   }
 
@@ -86,7 +102,7 @@ function writeGitignore(root: string, log: (value: string) => void): void {
     `${existing}${separator}${QUALITY_GITIGNORE_COMMENT}${newline}${missing.join(newline)}${newline}`,
     "utf8",
   );
-  log("Updated .gitignore (artifacts/quality/, .code-quality-tmp/)");
+  log("Updated .gitignore (artifacts/quality/)");
 }
 
 export function scaffold(root: string, config: ResolvedConfig, log: (value: string) => void): void {

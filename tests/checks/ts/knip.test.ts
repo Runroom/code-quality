@@ -58,7 +58,7 @@ describe("knip synthetic parser", () => {
     const input = { issues: [{
       file: "package.json", owners: ["team"], ignored: { dependencies: ["x"] }, catalog: {},
     }] };
-    await expect(knipFindings(ctx, input)).resolves.toEqual({});
+    expect((await knipFindings(ctx, input)).findings).toEqual({});
   });
 
   it("rejects the same export twice as ambiguous", async () => {
@@ -83,14 +83,14 @@ it("accepts unused dependencies from workspace package manifests", async () => {
     file: "packages/cli/package.json",
     dependencies: [{ name: "left-pad" }],
   }] };
-  await expect(knipFindings(checkContext("/r", "ts"), input)).resolves.toEqual({
+  expect((await knipFindings(checkContext("/r", "ts"), input)).findings).toEqual({
     "packages/cli/package.json | unused-dependency | left-pad": 1,
   });
 });
 
 describe("knip captured fixture", () => {
   it("returns all nine captured findings", async () => {
-    const findings = await knipFindings(
+    const { findings, details } = await knipFindings(
       checkContext(root),
       JSON.parse(readFileSync(nativeFile, "utf8")),
     );
@@ -105,6 +105,17 @@ describe("knip captured fixture", () => {
       "src/exports.ts | unused-export | /#orphan": 1,
       "src/ui/view.ts | unused-file | src/ui/view.ts": 1,
       "src/unused-file.ts | unused-file | src/unused-file.ts": 1,
+    });
+    expect(details["src/complexity.ts | unused-file | src/complexity.ts"]).toMatchObject({
+      message: "unused file",
+    });
+    expect(details["src/exports.ts | unused-export | /#orphan"]).toMatchObject({
+      line: 2,
+      column: 14,
+      message: "unused export 'orphan'",
+    });
+    expect(details["package.json | unused-dependency | left-pad"]).toMatchObject({
+      message: "unused dependency 'left-pad'",
     });
   });
 });

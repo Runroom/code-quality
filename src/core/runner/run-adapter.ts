@@ -13,6 +13,8 @@ import type {
   Applicability,
   CheckAdapter,
   CheckContext,
+  DuplicateDetail,
+  FindingDetails,
   GeneratedFile,
   ToolResult,
 } from "../types.ts";
@@ -25,6 +27,13 @@ export interface RunDeps {
   anchor: AnchorService;
   notice?: (message: string) => void;
   env?: NodeJS.ProcessEnv;
+  artifactsRoot?: string;
+}
+
+interface AdapterRun {
+  snapshot: Snapshot;
+  details: FindingDetails;
+  duplicates?: DuplicateDetail[];
 }
 
 function requireApplicable(adapter: CheckAdapter, config: ResolvedConfig): void {
@@ -92,8 +101,8 @@ async function runInTemp(
   config: ResolvedConfig,
   deps: RunDeps,
   tempDir: string,
-): Promise<Snapshot> {
-  const artifacts = artifactDir(config.root, adapter.id);
+): Promise<AdapterRun> {
+  const artifacts = artifactDir(deps.artifactsRoot ?? join(tempDir, "out"), adapter.id);
   const context = createContext({
     adapter, config, tempDir, artifacts, anchor: deps.anchor, notice: deps.notice,
   });
@@ -101,22 +110,28 @@ async function runInTemp(
   writeGenerated(tempDir, generated);
   deps.verify(adapter.tool);
   const result: ToolResult = deps.spawn(adapter.command(context), config.root);
-  writeArtifact(artifacts, "stdout.log", result.stdout);
-  writeArtifact(artifacts, "stderr.log", result.stderr);
-  let findings;
+  if (deps.artifactsRoot !== undefined) {
+    writeArtifact(artifacts, "stdout.log", result.stdout);
+    writeArtifact(artifacts, "stderr.log", result.stderr);
+  }
+  let parsed;
   try {
-    findings = await adapter.parse(context, result);
+    parsed = await adapter.parse(context, result);
   } catch (error) {
     throw parseError(adapter, error);
   }
-  return currentSnapshot(adapter, config, findings);
+  return {
+    snapshot: currentSnapshot(adapter, config, parsed.findings),
+    details: parsed.details,
+    ...(parsed.duplicates === undefined ? {} : { duplicates: parsed.duplicates }),
+  };
 }
 
 export async function runAdapter(
   adapter: CheckAdapter,
   config: ResolvedConfig,
   deps: RunDeps,
-): Promise<Snapshot> {
+): Promise<AdapterRun> {
   requireApplicable(adapter, config);
   return withTempDir((tempDir) => runInTemp(adapter, config, deps, tempDir));
 }

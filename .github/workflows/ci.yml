@@ -62,9 +62,3 @@ jobs:
       - name: Publish dogfood summary
         if: always()
         run: "[ -f artifacts/step-summary.md ] && cat artifacts/step-summary.md >> \"$GITHUB_STEP_SUMMARY\" || echo 'no dogfood summary'"
-      - if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: dogfood-artifacts
-          path: artifacts/
-          retention-days: 14

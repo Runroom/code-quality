@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { FindingsBuilder, parseJsonOutput } from "../shared/kit.ts";
 import { requireVendor } from "./vendor.ts";
-import type { CheckAdapter, Findings } from "../shared/kit.ts";
+import type { CheckAdapter, ParsedFindings } from "../shared/kit.ts";
 
 const reportSchema = z.strictObject({
   _meta: z.object({
@@ -14,11 +14,13 @@ const reportSchema = z.strictObject({
   "unknown-symbols": z.record(z.string(), z.array(z.string())),
 });
 
-export function requireCheckerFindings(input: unknown): Findings {
+export function requireCheckerFindings(input: unknown): ParsedFindings {
   const report = reportSchema.parse(input);
   const findings = new FindingsBuilder();
   for (const symbol of Object.keys(report["unknown-symbols"])) {
-    findings.add("composer.json", "unknown-symbol", symbol, 1);
+    findings.add({ file: "composer.json", rule: "unknown-symbol", anchor: symbol, value: 1,
+      message: `unknown symbol '${symbol}'`,
+    });
   }
   return findings.build();
 }
@@ -42,7 +44,7 @@ export const requireCheckerAdapter: CheckAdapter = {
         "composer-require-checker found no symbols to analyse "
           + "(composer.json autoload does not cover the configured paths); check skipped",
       );
-      return Promise.resolve({});
+      return Promise.resolve({ findings: {}, details: {} });
     }
     return Promise.resolve(
       requireCheckerFindings(

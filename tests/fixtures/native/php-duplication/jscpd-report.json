@@ -2,18 +2,18 @@
   "duplicates": [
     {
       "firstFile": {
-        "end": 82,
+        "end": 83,
         "endLoc": {
           "column": 21,
-          "line": 82,
-          "position": 1544
+          "line": 83,
+          "position": 1596
         },
-        "name": "Service/Complex.php",
-        "start": 54,
+        "name": "/work/src/Service/Complex.php",
+        "start": 55,
         "startLoc": {
           "column": 8,
-          "line": 54,
-          "position": 915
+          "line": 55,
+          "position": 967
         }
       },
       "format": "php",
@@ -22,50 +22,50 @@
       "kind": "exact",
       "lines": 29,
       "secondFile": {
-        "end": 83,
+        "end": 84,
         "endLoc": {
           "column": 21,
-          "line": 83,
-          "position": 1566
+          "line": 84,
+          "position": 1618
         },
-        "name": "Service/Complex.php",
-        "start": 55,
+        "name": "/work/src/Service/Complex.php",
+        "start": 56,
         "startLoc": {
           "column": 8,
-          "line": 55,
-          "position": 937
+          "line": 56,
+          "position": 989
         }
       },
       "tokens": 174
     }
   ],
   "statistics": {
-    "detectionDate": "2026-09-09T21:47:56.396Z",
+    "detectionDate": "2026-09-10T17:08:31.326Z",
     "formats": {
       "php": {
         "clones": 1,
         "duplicatedLines": 28,
         "duplicatedTokens": 174,
-        "lines": 86,
+        "lines": 87,
         "newClones": 1,
         "newDuplicatedLines": 28,
-        "percentage": 32.55813953488372,
-        "percentageTokens": 41.9277108433735,
+        "percentage": 32.18390804597701,
+        "percentageTokens": 40.46511627906977,
         "sources": 1,
-        "tokens": 415
+        "tokens": 430
       }
     },
     "total": {
       "clones": 1,
       "duplicatedLines": 28,
       "duplicatedTokens": 174,
-      "lines": 86,
+      "lines": 87,
       "newClones": 1,
       "newDuplicatedLines": 28,
-      "percentage": 32.55813953488372,
-      "percentageTokens": 41.9277108433735,
+      "percentage": 32.18390804597701,
+      "percentageTokens": 40.46511627906977,
       "sources": 1,
-      "tokens": 415
+      "tokens": 430
     }
   }
 }

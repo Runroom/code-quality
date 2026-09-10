@@ -82,6 +82,24 @@ interface CaptureInput {
   fixtureDir: string;
 }
 
+function captureContext(
+  adapter: CheckAdapter,
+  config: ReturnType<typeof loadConfig>,
+  root: string,
+): CheckContext {
+  return {
+    root: "/work",
+    config: { ...config, root: "/work" },
+    language: adapter.language,
+    paths: config.paths[adapter.language] ?? [],
+    tempDir: "/work/.code-quality-tmp",
+    artifactDir: `/work/artifacts/quality/${adapter.id}`,
+    readSource: (file) => readFileSync(join(root, file), "utf8"),
+    anchor: { anchor: async () => "/" },
+    notice: () => {},
+  };
+}
+
 function captureInput(args: string[]): CaptureInput {
   const [adapterId, fixtureDir, ...extra] = args;
   if (!adapterId || !fixtureDir || extra.length > 0) return usage();
@@ -110,17 +128,7 @@ function main(): void {
   const root = resolve(input.fixtureDir);
   const adapter = findAdapter(input.adapterId);
   const config = loadConfig(root);
-  const context: CheckContext = {
-    root: "/work",
-    config: { ...config, root: "/work" },
-    language: adapter.language,
-    paths: config.paths[adapter.language] ?? [],
-    tempDir: "/work/.code-quality-tmp",
-    artifactDir: `/work/artifacts/quality/${adapter.id}`,
-    readSource: (file) => readFileSync(join(root, file), "utf8"),
-      anchor: { anchor: async () => "/" },
-      notice: () => {},
-  };
+  const context = captureContext(adapter, config, root);
   rmSync(join(root, ".code-quality-tmp"), { recursive: true, force: true });
   mkdirSync(join(root, "artifacts", "quality", adapter.id), { recursive: true });
   clearOutputs(root, adapter, context);

@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { assertInScope, excludeGlobs, FindingsBuilder, relativizeFrom, toolOutput } from "../shared/kit.ts";
-import type { CheckAdapter, CheckContext, Findings } from "../shared/kit.ts";
+import type { CheckAdapter, CheckContext, ParsedFindings } from "../shared/kit.ts";
 
 const reportSchema = z.array(z.looseObject({
   error: z.looseObject({
@@ -42,13 +42,18 @@ export function deptryExcludeRegex(glob: string): string {
   return `${prefix}${body}${suffix}`;
 }
 
-export function deptryFindings(ctx: CheckContext, input: unknown): Findings {
+export function deptryFindings(ctx: CheckContext, input: unknown): ParsedFindings {
   const report = reportSchema.parse(input);
   const findings = new FindingsBuilder();
   for (const diagnostic of report) {
     const file = relativizeFrom(ctx.root, diagnostic.location.file);
     assertInScope(file, ctx.paths, ["pyproject.toml", "setup.py"]);
-    findings.add(file, `deptry-${diagnostic.error.code}`, diagnostic.module, 1);
+    findings.add({
+      file, rule: `deptry-${diagnostic.error.code}`, anchor: diagnostic.module, value: 1,
+      message: diagnostic.error.message,
+      ...(diagnostic.location.line === null ? {} : { line: diagnostic.location.line }),
+      ...(diagnostic.location.column === null ? {} : { column: diagnostic.location.column }),
+    });
   }
   return findings.build();
 }

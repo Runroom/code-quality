@@ -27,7 +27,7 @@ describe("deptry synthetic parser", () => {
   });
 
   it("uses the DEP002 dependency key shape", () => {
-    expect(deptryFindings(ctx, report("DEP002"))).toEqual({
+    expect(deptryFindings(ctx, report("DEP002")).findings).toEqual({
       "pyproject.toml | deptry-DEP002 | requests": 1,
     });
   });
@@ -62,8 +62,11 @@ describe("deptry synthetic parser", () => {
 describe.skipIf(!existsSync(nativeFile))("deptry captured fixture", () => {
   it("finds requests as an unused dependency", () => {
     const input = JSON.parse(readFileSync(nativeFile, "utf8")) as unknown;
-    expect(deptryFindings(checkContext(root, "python"), input)).toHaveProperty(
-      "pyproject.toml | deptry-DEP002 | requests", 1,
-    );
+    const parsed = deptryFindings(checkContext(root, "python"), input);
+    const key = "pyproject.toml | deptry-DEP002 | requests";
+    expect(parsed.findings).toHaveProperty(key, 1);
+    expect(parsed.details[key]).toMatchObject({
+      message: "'requests' defined as a dependency but not used in the codebase",
+    });
   });
 });
