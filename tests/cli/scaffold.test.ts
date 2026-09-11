@@ -76,7 +76,7 @@ describe("consumer scaffold", () => {
     }
   });
 
-  it("does not overwrite consumer files and logs an existing Makefile snippet", () => {
+  it("does not overwrite consumer files and extends an existing Makefile", () => {
     const root = mkdtempSync(join(tmpdir(), "code-quality-scaffold-"));
     roots.push(root);
     mkdirSync(join(root, "src"));
@@ -89,12 +89,220 @@ describe("consumer scaffold", () => {
     scaffold(root, config(), (value) => logs.push(value));
 
     expect(readFileSync(join(root, ".code-quality.yml"), "utf8")).toBe(existingConfig);
-    expect(readFileSync(join(root, "Makefile"), "utf8")).toBe(existingMakefile);
-    expect(logs).toContain("Kept existing Makefile; add these targets to it if you want make quality:");
-    expect(logs).toContain(MAKEFILE_SNIPPET);
+    expect(readFileSync(join(root, "Makefile"), "utf8")).toBe(
+      `${existingMakefile}\n${MAKEFILE_SNIPPET}`,
+    );
+    expect(logs).toContain("Updated Makefile (make quality)");
     expect(existsSync(join(root, "quality"))).toBe(true);
     expect(existsSync(join(root, ".github/workflows/quality.yml"))).toBe(true);
     expect(existsSync(join(root, ".dependency-cruiser.cjs"))).toBe(false);
+  });
+});
+
+describe("consumer Makefile scaffold", () => {
+  it("keeps going when the Makefile cannot be read", () => {
+    const root = mkdtempSync(join(tmpdir(), "code-quality-scaffold-"));
+    roots.push(root);
+    mkdirSync(join(root, "Makefile"));
+    const logs: string[] = [];
+
+    scaffold(root, config(), (value) => logs.push(value));
+
+    expect(logs).toContain("Kept Makefile: could not read it (EISDIR)");
+  });
+
+  it("creates Makefile when absent", () => {
+    const root = mkdtempSync(join(tmpdir(), "code-quality-scaffold-"));
+    roots.push(root);
+    const logs: string[] = [];
+
+    scaffold(root, config(), (value) => logs.push(value));
+
+    expect(readFileSync(join(root, "Makefile"), "utf8")).toBe(MAKEFILE_SNIPPET);
+    expect(logs).toContain("Created Makefile (make quality)");
+  });
+
+  it("appends the snippet to an empty existing Makefile", () => {
+    const root = mkdtempSync(join(tmpdir(), "code-quality-scaffold-"));
+    roots.push(root);
+    writeFileSync(join(root, "Makefile"), "", "utf8");
+    const logs: string[] = [];
+
+    scaffold(root, config(), (value) => logs.push(value));
+
+    expect(readFileSync(join(root, "Makefile"), "utf8")).toBe(MAKEFILE_SNIPPET);
+  });
+
+  it("appends the snippet with a separator when the Makefile lacks a trailing newline", () => {
+    const root = mkdtempSync(join(tmpdir(), "code-quality-scaffold-"));
+    roots.push(root);
+    const existing = "custom:\n\techo custom";
+    writeFileSync(join(root, "Makefile"), existing, "utf8");
+    const logs: string[] = [];
+
+    scaffold(root, config(), (value) => logs.push(value));
+
+    expect(readFileSync(join(root, "Makefile"), "utf8")).toBe(
+      `${existing}\n\n${MAKEFILE_SNIPPET}`,
+    );
+    expect(logs).toContain("Updated Makefile (make quality)");
+  });
+
+  it("keeps a Makefile byte-identical when CODE_QUALITY is already defined", () => {
+    const root = mkdtempSync(join(tmpdir(), "code-quality-scaffold-"));
+    roots.push(root);
+    writeFileSync(join(root, "Makefile"), MAKEFILE_SNIPPET, "utf8");
+    const logs: string[] = [];
+
+    scaffold(root, config(), (value) => logs.push(value));
+
+    expect(readFileSync(join(root, "Makefile"), "utf8")).toBe(MAKEFILE_SNIPPET);
+    expect(logs).toContain("Kept Makefile");
+  });
+});
+
+describe("consumer Makefile scaffold conflicts", () => {
+  it.each([
+    "quality-all:\n\techo custom\n",
+    "quality-baseline:\n\techo custom\n",
+    "quality-report:\n\techo custom\n",
+    "quality-doctor:\n\techo custom\n",
+    "  quality:\n\techo custom\n",
+    ".PHONY: quality\n",
+  ])("keeps a Makefile that conflicts with the quality scaffold: %s", (existing) => {
+    const root = mkdtempSync(join(tmpdir(), "code-quality-scaffold-"));
+    roots.push(root);
+    writeFileSync(join(root, "Makefile"), existing, "utf8");
+    const logs: string[] = [];
+
+    scaffold(root, config(), (value) => logs.push(value));
+
+    expect(readFileSync(join(root, "Makefile"), "utf8")).toBe(existing);
+    expect(logs).toContain(
+      "Kept Makefile: it already defines a quality target or a custom recipe prefix. Add these targets by hand; recipe lines must start with a tab:",
+    );
+    expect(logs).toContain(MAKEFILE_SNIPPET);
+  });
+
+  it("keeps a Makefile with a custom recipe prefix", () => {
+    const root = mkdtempSync(join(tmpdir(), "code-quality-scaffold-"));
+    roots.push(root);
+    const existing = ".RECIPEPREFIX := >\nbuild:\n\t>echo build\n";
+    writeFileSync(join(root, "Makefile"), existing, "utf8");
+    const logs: string[] = [];
+
+    scaffold(root, config(), (value) => logs.push(value));
+
+    expect(readFileSync(join(root, "Makefile"), "utf8")).toBe(existing);
+    expect(logs).toContain(
+      "Kept Makefile: it already defines a quality target or a custom recipe prefix. Add these targets by hand; recipe lines must start with a tab:",
+    );
+    expect(logs).toContain(MAKEFILE_SNIPPET);
+  });
+});
+
+describe("consumer Makefile scaffold assignments", () => {
+  it("keeps a Makefile when CODE_QUALITY is already defined", () => {
+    const root = mkdtempSync(join(tmpdir(), "code-quality-scaffold-"));
+    roots.push(root);
+    const existing = "CODE_QUALITY := docker run x\n";
+    writeFileSync(join(root, "Makefile"), existing, "utf8");
+    const logs: string[] = [];
+
+    scaffold(root, config(), (value) => logs.push(value));
+
+    expect(readFileSync(join(root, "Makefile"), "utf8")).toBe(existing);
+    expect(logs).toContain("Kept Makefile");
+  });
+
+  it("appends when only CODE_QUALITY_IMAGE is defined", () => {
+    const root = mkdtempSync(join(tmpdir(), "code-quality-scaffold-"));
+    roots.push(root);
+    const existing = "CODE_QUALITY_IMAGE ?= x\n";
+    writeFileSync(join(root, "Makefile"), existing, "utf8");
+    const logs: string[] = [];
+
+    scaffold(root, config(), (value) => logs.push(value));
+
+    expect(readFileSync(join(root, "Makefile"), "utf8")).toBe(
+      `${existing}\n${MAKEFILE_SNIPPET}`,
+    );
+  });
+
+  it("keeps an exported CODE_QUALITY assignment", () => {
+    const root = mkdtempSync(join(tmpdir(), "code-quality-scaffold-"));
+    roots.push(root);
+    const existing = "export CODE_QUALITY = x\n";
+    writeFileSync(join(root, "Makefile"), existing, "utf8");
+    const logs: string[] = [];
+
+    scaffold(root, config(), (value) => logs.push(value));
+
+    expect(readFileSync(join(root, "Makefile"), "utf8")).toBe(existing);
+    expect(logs).toContain("Kept Makefile");
+  });
+});
+
+describe("consumer Makefile scaffold edge cases", () => {
+  it("keeps a pasted snippet with space-indented recipes and reports the line", () => {
+    const root = mkdtempSync(join(tmpdir(), "code-quality-scaffold-"));
+    roots.push(root);
+    const existing = "CODE_QUALITY = docker run x\nquality:\n        $(CODE_QUALITY) check\n";
+    writeFileSync(join(root, "Makefile"), existing, "utf8");
+    const logs: string[] = [];
+
+    scaffold(root, config(), (value) => logs.push(value));
+
+    expect(readFileSync(join(root, "Makefile"), "utf8")).toBe(existing);
+    expect(logs.join("\n")).toMatch(/indented with spaces/);
+    expect(logs).toContain(
+      "Kept Makefile: quality recipes at line 3 are indented with spaces; Make needs a tab (fix: replace the leading spaces with one tab).",
+    );
+  });
+
+  it("uses GNUmakefile when it is the first existing makefile", () => {
+    const root = mkdtempSync(join(tmpdir(), "code-quality-scaffold-"));
+    roots.push(root);
+    const existing = "custom:\n\techo custom\n";
+    writeFileSync(join(root, "GNUmakefile"), existing, "utf8");
+    const logs: string[] = [];
+
+    scaffold(root, config(), (value) => logs.push(value));
+
+    expect(readFileSync(join(root, "GNUmakefile"), "utf8")).toBe(
+      `${existing}\n${MAKEFILE_SNIPPET}`,
+    );
+    expect(existsSync(join(root, "Makefile"))).toBe(false);
+    expect(logs).toContain("Updated GNUmakefile (make quality)");
+  });
+
+  it("does not add a second blank line when the Makefile already has one", () => {
+    const root = mkdtempSync(join(tmpdir(), "code-quality-scaffold-"));
+    roots.push(root);
+    const existing = "custom:\n\techo custom\n\n";
+    writeFileSync(join(root, "Makefile"), existing, "utf8");
+    const logs: string[] = [];
+
+    scaffold(root, config(), (value) => logs.push(value));
+
+    expect(readFileSync(join(root, "Makefile"), "utf8")).toBe(
+      `${existing}${MAKEFILE_SNIPPET}`,
+    );
+  });
+
+  it("preserves CRLF line endings when appending", () => {
+    const root = mkdtempSync(join(tmpdir(), "code-quality-scaffold-"));
+    roots.push(root);
+    const existing = "custom:\r\n\techo custom\r\n";
+    writeFileSync(join(root, "Makefile"), existing, "utf8");
+    const logs: string[] = [];
+
+    scaffold(root, config(), (value) => logs.push(value));
+
+    expect(readFileSync(join(root, "Makefile"), "utf8")).toBe(
+      `${existing}\r\n${MAKEFILE_SNIPPET.replaceAll("\n", "\r\n")}`,
+    );
+    expect(logs).toContain("Updated Makefile (make quality)");
   });
 });
 

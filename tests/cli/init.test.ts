@@ -13,6 +13,7 @@ import { parse } from "yaml";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { runCli } from "../../src/cli/program.ts";
+import { MAKEFILE_SNIPPET } from "../../src/cli/scaffold.ts";
 import type { CliDeps } from "../../src/cli/deps.ts";
 import { fakeAdapter, fakeDeps } from "../helpers/fake-adapter.ts";
 
@@ -101,6 +102,8 @@ describe("init command", () => {
     expect(readFileSync(join(root, ".code-quality.yml"), "utf8")).toBe(config);
     expect(readFileSync(join(root, "quality/ts-alpha-baseline.json"), "utf8")).toBe(baseline);
     expect(existsSync(join(root, "quality/ts-beta-baseline.json"))).toBe(true);
+    expect(readFileSync(join(root, "Makefile"), "utf8")).toBe(MAKEFILE_SNIPPET);
+    expect(output.join("")).toContain("Kept Makefile\n");
     expect(output.join("")).toContain("Kept existing: quality/ts-alpha-baseline.json\n");
     expect(errors.join(" ")).not.toContain("already exists");
   });
