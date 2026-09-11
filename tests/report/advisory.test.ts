@@ -16,6 +16,9 @@ import { reportCommand } from "../../src/cli/commands/report.ts";
 import { runCli } from "../../src/cli/program.ts";
 import type { CheckContext, ToolInvocation, ToolResult } from "../../src/core/types.ts";
 import { fakeDeps } from "../helpers/fake-adapter.ts";
+import { createStyle } from "../../src/cli/style.ts";
+
+const style = createStyle(false);
 
 const roots: string[] = [];
 
@@ -69,8 +72,9 @@ function writeHtmlOutput(invocation: ToolInvocation): void {
 }
 
 function reportMessages(output: string): string[] {
-  return ["fallow-health", "fallow-dupes", "jscpd-html"]
-    .map((id) => `Report ${id}: ${join(output, id)}\n`);
+  const ids = ["fallow-health", "fallow-dupes", "jscpd-html"];
+  const idWidth = Math.max(...ids.map((id) => id.length), 0);
+  return ids.map((id) => ` ✔ ${id.padEnd(idWidth)}  ${join(output, id)}\n`);
 }
 
 afterEach(() => {
@@ -115,7 +119,7 @@ describe("advisory reports", () => {
       return result();
     };
     const deps = {
-      registry: [], run, env: {}, cwd: root,
+      registry: [], run, env: {}, cwd: root, style,
       stdout: (value: string) => messages.push(value), stderr: () => {},
     };
     expect(await reportCommand(deps)).toBe(0);
@@ -182,7 +186,7 @@ describe("fallow advisory configuration", () => {
       return result();
     };
     const deps = {
-      registry: [], run, env: {}, cwd: root,
+      registry: [], run, env: {}, cwd: root, style,
       stdout: () => {}, stderr: () => {},
     };
     expect(await reportCommand(deps)).toBe(0);
@@ -222,7 +226,7 @@ describe("fallow advisory scope", () => {
       return result();
     };
     const deps = {
-      registry: [], run, env: {}, cwd: root,
+      registry: [], run, env: {}, cwd: root, style,
       stdout: () => {}, stderr: () => {},
     };
     expect(await reportCommand(deps)).toBe(0);
@@ -259,7 +263,7 @@ describe("fallow advisory passthrough", () => {
       return result();
     };
     const deps = {
-      registry: [], run, env: {}, cwd: root,
+      registry: [], run, env: {}, cwd: root, style,
       stdout: () => {}, stderr: () => {},
     };
     const healthPath = join(root, "artifacts/quality/fallow-health/fallow-health.json");

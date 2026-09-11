@@ -17,6 +17,7 @@ export interface LaunchContext {
   uid?: number;
   gid?: number;
   image: string;
+  isTTY: boolean;
 }
 
 export function imageFor(version: string, env: NodeJS.ProcessEnv): string {
@@ -44,8 +45,11 @@ export function buildDockerArgs(ctx: LaunchContext): string[] {
   if (ctx.platform === "linux" && ctx.uid !== undefined && ctx.gid !== undefined) {
     args.push("--user", `${ctx.uid}:${ctx.gid}`);
   }
-  for (const name of ["CI", "GITHUB_ACTIONS"] as const) {
+  for (const name of ["CI", "GITHUB_ACTIONS", "NO_COLOR", "FORCE_COLOR"] as const) {
     if (ctx.env[name] !== undefined) args.push("-e", name);
+  }
+  if (ctx.isTTY && !ctx.env.NO_COLOR && ctx.env.FORCE_COLOR === undefined) {
+    args.push("-e", "FORCE_COLOR=1");
   }
   args.push(ctx.image, ...ctx.argv);
   return args;

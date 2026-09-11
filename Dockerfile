@@ -14,7 +14,7 @@ RUN pnpm typecheck && pnpm test && pnpm build
 
 FROM node:24-trixie-slim AS runtime
 ENV DEBIAN_FRONTEND=noninteractive COMPOSER_ALLOW_SUPERUSER=1 COMPOSER_HOME=/opt/composer-home \
-    PATH="/opt/venv/bin:/opt/php/bin:${PATH}" FALLOW_TELEMETRY_DISABLED=1 JSCPD_NO_TIPS=1 NO_COLOR=1
+    PATH="/opt/venv/bin:/opt/php/bin:${PATH}" FALLOW_TELEMETRY_DISABLED=1 JSCPD_NO_TIPS=1
 RUN apt-get update && apt-get install -y --no-install-recommends \
       php8.4-cli php8.4-mbstring php8.4-xml php8.4-intl php8.4-zip \
       php8.4-apcu php8.4-redis php8.4-gd php8.4-bcmath php8.4-curl php8.4-mysql \

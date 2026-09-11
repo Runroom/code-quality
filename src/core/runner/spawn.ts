@@ -11,7 +11,6 @@ const INHERITED_ENV = [
   "LC_ALL",
   "TMPDIR",
   "TERM",
-  "NO_COLOR",
   "XDG_CACHE_HOME",
   "COMPOSER_HOME",
   "COMPOSER_ALLOW_SUPERUSER",
@@ -28,10 +27,11 @@ function toolEnvironment(invocation: ToolInvocation): NodeJS.ProcessEnv {
   }
   return {
     ...env,
+    ...invocation.env,
     CI: "true",
+    NO_COLOR: "1",
     FALLOW_TELEMETRY_DISABLED: "1",
     JSCPD_NO_TIPS: "1",
-    ...invocation.env,
   };
 }
 

@@ -97,7 +97,7 @@ The CLI also provides:
 - `versions` to print every pinned binary and library;
 - `doctor` to verify installed versions and grammar assets.
 
-Use `check --initialize` once for a new check or after reviewing a tool/configuration mismatch; it refuses to replace an existing snapshot. `init` creates missing baselines and keeps existing ones, reporting each kept file as `Kept existing: quality/<adapter-id>-baseline.json`.
+Use `check --initialize` once for a new check or after reviewing a tool/configuration mismatch; it refuses to replace an existing snapshot. `init` creates missing baselines and keeps existing ones, reporting each kept file as `● Kept existing quality/<adapter-id>-baseline.json`.
 
 ## CI
 
@@ -160,22 +160,30 @@ Initialize a check once with `check --initialize` after reviewing its current fi
 
 ## Output
 
-`check` writes one line to stdout for each failing finding: new or worsened regressions and stale baseline entries. Locations are `file:line:col`, `file:line`, or `file`. Ordinary finding lines use `file:line:col  rule  message  [new]` (the message is the tool's own text and already states the limit), with `[worsened P → V]`, `[improved P → V]` when a finding's value decreased, and `[stale: was P]` when it disappeared. Duplication locations use `a:start-end ↔ b:start-end`. `check --all` also prints every unchanged current finding with `[baselined]`.
-
-After the finding lines, stdout contains a padded summary row for each adapter, including skipped and error rows, followed by `code-quality: PASS (N checks)` or `code-quality: FAIL (F of N checks)`. stderr keeps one line per failing adapter, such as `ts-complexity: 2 regressions` or `ts-complexity: 3 stale entries; run code-quality baseline and commit the reduced baseline`.
+`check` starts with the CLI version, detected languages, and check count. Each check then has a status row followed by its nested new, worsened, stale, or improved findings. Locations are `file:line:col`, `file:line`, or `file`; duplication locations use `a:start-end ↔ b:start-end`. `check --all` also prints unchanged current findings as `baselined`. A compact block at the end reports passed and failed checks, blocking findings, stale entries, skipped checks, and the final result. stderr keeps one line per failing adapter, such as `ts-complexity: 2 regressions` or `ts-complexity: 3 stale entries; run code-quality baseline and commit the reduced baseline`.
 
 A realistic output block is:
 
 ```text
-src/orders/checkout.py:42:5  C901  `checkout` is too complex (12 > 10)  [new]
-src/services/render.ts:18:1  eslint(max-params)  Function 'render' has too many parameters (6). Maximum allowed is 4.  [worsened 4 → 6]
-src/dup-a.ts:3-14 ↔ src/dup-b.ts:3-14  duplication  12 lines, 61 tokens duplicated  [new]
-src/legacy/old.py  vulture-unused-function  /#old  [stale: was 1]
-ts-complexity      oxlint 1.82.0  280 findings · 2 new · 0 stale  FAIL
-python-complexity  ruff 0.16.6    24 findings · 1 new · 1 stale  FAIL
-ts-duplication     jscpd 5.2.0    8 clone occurrences · 1 new · 0 stale  FAIL
-code-quality: FAIL (3 of 3 checks)
+ code-quality 1.1.7 · ts, python · 5 checks
+
+ ✔ ts-complexity      oxlint 1.82.0  280 findings
+ ✖ ts-cognitive       fallow 3.23.0  18 findings · 2 new
+   └ src/services/render.ts:18:1  max-params  Function has too many parameters  new
+   └ src/orders/checkout.ts:42:5  complexity  Function is too complex  worsened 10 → 12
+ ✖ python-complexity  ruff 0.16.6    24 findings · 1 new
+   └ src/orders/checkout.py:42:5  C901  `checkout` is too complex (12 > 10)  new
+ ✔ ts-duplication     jscpd 5.2.0    8 clones
+ ✔ python-unused      vulture 2.16   3 findings
+ – ts-architecture    skipped: no rules file
+
+ Checks   3 passed · 2 failed
+ Blocking 3 new findings
+ Skipped  1
+ Result   FAIL
 ```
+
+`--color` and `--no-color` override everything; otherwise a non-empty `NO_COLOR` disables color, then `FORCE_COLOR` (any value but `0`) forces it, then color is on in GitHub Actions or when stdout is a TTY. The npm launcher forwards these settings.
 
 `check`, `baseline`, and `init` accept `--artifacts <dir>` to retain raw tool output plus `stdout.log` and `stderr.log` per adapter. Without it, adapter output stays in a temporary directory and no adapter artifacts or logs are written by default. `report --output <dir>` selects the advisory report directory and defaults to `artifacts/quality/`.
 
@@ -261,4 +269,4 @@ pnpm capture <adapter-id> <fixture-directory>
 
 `pnpm verify` runs typecheck, lint, tests, and the bundle build. `pnpm integration` expects a locally built image and exercises the three fixture repositories plus deliberate mutations; on the first run, it installs fixture dependencies through the image. Native fixture capture is performed against a pinned image tool and is used by adapter parser tests.
 
-A release tag also stages the npm launcher from `launcher/` through npm trusted publishing (OIDC) with `npm stage publish`; the trusted publisher has stage-only permission, so a maintainer must review and approve the staged version with 2FA (`npm stage list @runroom/code-quality`, then `npm stage approve <stage-id>`, or from the package page on npmjs.com) before it is installable. Staging requires npm 11.15 or later, which the release job installs explicitly. The very first version of the package cannot be staged and must be published by hand from `launcher/` (`pnpm build`, then `npm publish --access public`); the trusted publisher for repository `Runroom/code-quality` and workflow `release.yml` is configured on npmjs.com afterwards. A version bump must update root `package.json`, `launcher/package.json`, and the `.version()` literal in `src/cli/program.ts` together.
+A release tag also stages the npm launcher from `launcher/` through npm trusted publishing (OIDC) with `npm stage publish`; the trusted publisher has stage-only permission, so a maintainer must review and approve the staged version with 2FA (`npm stage list @runroom/code-quality`, then `npm stage approve <stage-id>`, or from the package page on npmjs.com) before it is installable. Staging requires npm 11.15 or later, which the release job installs explicitly. The very first version of the package cannot be staged and must be published by hand from `launcher/` (`pnpm build`, then `npm publish --access public`); the trusted publisher for repository `Runroom/code-quality` and workflow `release.yml` is configured on npmjs.com afterwards. A version bump must update root `package.json`, `launcher/package.json`, and the CLI version literal in `src/cli/version.ts` together.

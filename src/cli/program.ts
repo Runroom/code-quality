@@ -11,6 +11,9 @@ import { reportCommand } from "./commands/report.ts";
 import { doctorLine, grammarProbes, runDoctor } from "./commands/doctor.ts";
 import { versionsText } from "./commands/versions.ts";
 import type { CliDeps } from "./deps.ts";
+import { fieldLine, plural, sanitizeLine } from "./render.ts";
+import type { Style } from "./style.ts";
+import { CLI_VERSION } from "./version.ts";
 
 interface ProgramState {
   exitCode: number;
@@ -40,15 +43,29 @@ function doctorDependencies(deps: CliDeps): { assets: string; probe: (bin: strin
 }
 
 async function versionsCommand(deps: CliDeps): Promise<number> {
-  deps.stdout(`${versionsText()}\n`);
+  deps.stdout(`${versionsText(undefined, undefined, deps.style).join("\n")}\n`);
   return 0;
+}
+
+export function doctorResultLine(probes: readonly { ok: boolean }[], style: Style): string {
+  const failed = probes.filter((probe) => !probe.ok).length;
+  const result = failed === 0
+    ? style.bold(style.green("OK"))
+    : style.bold(style.red("FAIL"));
+  const detail = failed === 0
+    ? plural(probes.length, "probe")
+    : `${failed} of ${plural(probes.length, "probe")}`;
+  return fieldLine("Result", `${result} · ${detail}`, style);
 }
 
 async function doctorCommand(deps: CliDeps): Promise<number> {
   const runtime = doctorDependencies(deps);
   const probes = [...runDoctor(runtime), ...(await grammarProbes(runtime.assets))];
-  for (const probe of probes) deps.stdout(`${doctorLine(probe)}\n`);
-  return probes.every((probe) => probe.ok) ? 0 : 1;
+  for (const probe of probes) deps.stdout(`${doctorLine(probe, deps.style)}\n`);
+  const failed = probes.filter((probe) => !probe.ok).length;
+  deps.stdout("\n");
+  deps.stdout(`${doctorResultLine(probes, deps.style)}\n`);
+  return failed === 0 ? 0 : 1;
 }
 
 async function checkHandler(
@@ -108,7 +125,10 @@ function createProgram(deps: CliDeps): Command {
   const state: ProgramState = { exitCode: 0 };
   const program = new Command("code-quality")
     .description("Runroom incremental quality gate")
-    .version("1.1.6")
+    .version(CLI_VERSION)
+    // Resolved before parsing in main.ts because deps.style is needed when commands run.
+    .option("--color", "force color output")
+    .option("--no-color", "disable color output")
     .exitOverride()
     .configureOutput({
       writeOut: (value) => deps.stdout(value),
@@ -137,7 +157,7 @@ export async function runCli(argv: string[], deps: CliDeps): Promise<number> {
     return PROGRAM_STATES.get(program)?.exitCode ?? 0;
   } catch (error) {
     if (error instanceof CommanderError && isSuccessfulCommanderExit(error)) return 0;
-    deps.stderr(`${errorMessage(error)}\n`);
+    deps.stderr(`${sanitizeLine(errorMessage(error))}\n`);
     return 1;
   }
 }

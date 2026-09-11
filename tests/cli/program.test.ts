@@ -13,10 +13,11 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { runCli } from "../../src/cli/program.ts";
+import { doctorResultLine, runCli } from "../../src/cli/program.ts";
 import type { CliDeps } from "../../src/cli/deps.ts";
 import { fakeAdapter, fakeDeps } from "../helpers/fake-adapter.ts";
 import { TOOL_PINS } from "../../src/registry.ts";
+import { createStyle } from "../../src/cli/style.ts";
 
 const roots: string[] = [];
 
@@ -37,6 +38,7 @@ function deps(root: string, registry = defaultRegistry()): CliDeps {
     cwd: root,
     stdout: (value) => outputs.push(value),
     stderr: (value) => errors.push(value),
+    style: createStyle(false),
   };
 }
 
@@ -53,11 +55,16 @@ let errors: string[] = [];
 
 function expectRegressionOutput(): void {
   expect(outputs).toEqual([
-    "src/index.ts:7:3  fake-complexity  Regression found  [new]\n",
-    "ts-alpha  node 0.0.0  0 findings · 0 new · 0 stale  OK\n",
-    "ts-beta   node 0.0.0  1 findings · 1 new · 0 stale  FAIL\n",
-    "ts-gamma  node 0.0.0  0 findings · 0 new · 0 stale  OK\n",
-    "code-quality: FAIL (1 of 3 checks)\n",
+    " code-quality 1.1.7 · ts · 3 checks\n",
+    "\n",
+    " ✔ ts-alpha  node 0.0.0  0 findings\n",
+    " ✖ ts-beta   node 0.0.0  1 finding · 1 new\n",
+    "   └ src/index.ts:7:3  fake-complexity  Regression found  new\n",
+    " ✔ ts-gamma  node 0.0.0  0 findings\n",
+    "\n",
+    " Checks   2 passed · 1 failed\n",
+    " Blocking 1 new finding\n",
+    " Result   FAIL\n",
   ]);
   expect(errors).toEqual(["ts-beta: 1 regressions\n"]);
 }
@@ -77,7 +84,7 @@ describe("CLI program", () => {
     expect(await runCli(["node", "code-quality", "check", "--initialize"], command)).toBe(0);
     expect(readdirSync(join(root, "quality"))).toHaveLength(3);
     expect(await runCli(["node", "code-quality", "check"], command)).toBe(0);
-    expect(outputs.at(-1)).toBe("code-quality: PASS (3 checks)\n");
+    expect(outputs.at(-1)).toBe(" Result   PASS\n");
   });
 
   it("reports unknown IDs and incompatible or guarded modes", async () => {
@@ -153,7 +160,7 @@ describe("CLI parser and summary failures", () => {
   it("renders an error row when a baseline is missing", async () => {
     const root = consumer();
     expect(await runCli(["node", "code-quality", "check"], deps(root))).toBe(1);
-    expect(outputs.join(" ")).toContain("ts-alpha  ERROR: quality/ts-alpha-baseline.json is missing");
+    expect(outputs.join(" ")).toContain("ts-alpha  ERROR  quality/ts-alpha-baseline.json is missing");
     expect(errors.join(" ")).toContain("quality/ts-alpha-baseline.json is missing");
   });
 });
@@ -170,7 +177,7 @@ describe("CLI gate aggregation", () => {
       };
     }
     await runCli(["node", "code-quality", "check", "--initialize"], deps(root, [first, second]));
-    expect(outputs.filter((line) => line.startsWith("Notice: anchors for src/index.ts")))
+    expect(outputs.filter((line) => line.startsWith(" ● Notice: anchors for src/index.ts")))
       .toHaveLength(1);
   });
 
@@ -234,7 +241,10 @@ describe("CLI auxiliary commands", () => {
     outputs = [];
     expect(await runCli(["node", "code-quality", "versions"], command)).toBe(0);
     expect(outputs.join(" ")).toContain("oxlint");
+    outputs = [];
     expect(await runCli(["node", "code-quality", "--help"], command)).toBe(0);
+    expect(outputs.join("")).toContain("--color");
+    expect(outputs.join("")).toContain("--no-color");
   });
 });
 
@@ -253,7 +263,7 @@ describe("CLI check output options", () => {
     outputs = [];
     expect(await runCli(["node", "code-quality", "check", "--all"], command)).toBe(0);
     expect(outputs.join("")).toContain(
-      "src/index.ts:2  fake-rule  fake-rule function:existing  [baselined]\n",
+      "   └ src/index.ts:2  fake-rule  fake-rule function:existing  baselined\n",
     );
   });
 });
@@ -273,7 +283,7 @@ describe("CLI baseline output options", () => {
     outputs = [];
     expect(await runCli(["node", "code-quality", "baseline", "--all"], command)).toBe(0);
     expect(outputs.join("")).toContain(
-      "src/index.ts  fake-rule  fake-rule function:existing  [baselined]\n",
+      "   └ src/index.ts  fake-rule  fake-rule function:existing  baselined\n",
     );
   });
 
@@ -332,12 +342,29 @@ describe("CLI artifact and annotation options", () => {
     expect(await runCli(
       ["node", "code-quality", "check", "--initialize"], deps(root, [unsafe]),
     )).toBe(1);
-    expect(outputs).toContain("Notice: src/a.ts ::warning::forged\n");
+    expect(outputs).toContain(" ● Notice: src/a.ts ::warning::forged\n");
     expect(errors).toContain("ts-unsafe: failed ::stop-commands::x\n");
   });
 });
 
 describe("CLI auxiliary failures", () => {
+  it("sanitizes errors caught by the CLI boundary", async () => {
+    const command = deps(consumer());
+    command.stdout = () => { throw new Error("##[stop-commands]x"); };
+    expect(await runCli(["node", "code-quality", "--help"], command)).toBe(1);
+    expect(errors).toEqual(["%23%23[stop-commands]x\n"]);
+  });
+
+  it("renders exact doctor result lines", () => {
+    const style = createStyle(false);
+    expect(doctorResultLine([{ ok: true }, { ok: true }], style))
+      .toBe(" Result   OK · 2 probes");
+    expect(doctorResultLine([{ ok: true }, { ok: false }], style))
+      .toBe(" Result   FAIL · 1 of 2 probes");
+    expect(doctorResultLine([{ ok: true }], style))
+      .toBe(" Result   OK · 1 probe");
+  });
+
   it("returns one for unknown commands and unknown configuration keys", async () => {
     const root = consumer();
     const command = deps(root);
