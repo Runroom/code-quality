@@ -1,0 +1,28 @@
+{
+  "name": "@runroom/code-quality",
+  "version": "1.1.6",
+  "description": "Runroom incremental quality gate — runs the pinned ghcr.io/runroom/code-quality image",
+  "type": "module",
+  "scripts": {
+    "prepack": "node -e \"require('node:fs').accessSync('dist/cli.js')\""
+  },
+  "bin": {
+    "code-quality": "dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Runroom/code-quality.git",
+    "directory": "launcher"
+  },
+  "license": "MIT"
+}

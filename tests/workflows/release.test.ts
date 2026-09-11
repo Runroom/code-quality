@@ -6,13 +6,21 @@ import { describe, expect, it } from "vitest";
 
 type Step = {
   uses?: string;
+  run?: string;
+  "working-directory"?: string;
   with?: Record<string, unknown>;
+};
+
+type Job = {
+  needs?: string[];
+  permissions?: Record<string, string>;
+  steps: Step[];
 };
 
 type Workflow = {
   on: { push: { tags: string[] } };
-  permissions: { packages: string };
-  jobs: { publish: { steps: Step[] } };
+  permissions: Record<string, string>;
+  jobs: { verify: Job; publish: Job; npm: Job };
 };
 
 function workflow(): Workflow {
@@ -22,19 +30,40 @@ function workflow(): Workflow {
 
 describe("release workflow", () => {
   it("pins every action to a commit SHA", () => {
-    const actionSteps = workflow().jobs.publish.steps.filter((step) => step.uses !== undefined);
+    const actionSteps = Object.values(workflow().jobs).flatMap((job) => job.steps)
+      .filter((step) => step.uses !== undefined);
 
     expect(actionSteps).not.toHaveLength(0);
     for (const step of actionSteps) expect(step.uses).toMatch(/@[0-9a-f]{40}$/u);
   });
 
-  it("runs for version tags and can publish packages", () => {
+  it("uses least-privilege job permissions and ordering", () => {
     const release = workflow();
 
     expect(release.on.push.tags).toEqual(["v*"]);
-    expect(release.permissions.packages).toBe("write");
+    expect(Object.keys(release.jobs)).toEqual(["verify", "publish", "npm"]);
+    expect(release.permissions).toEqual({ contents: "read" });
+    expect(release.jobs.publish.needs).toEqual(["verify"]);
+    expect(release.jobs.publish.permissions).toEqual({ contents: "read", packages: "write" });
+    expect(release.jobs.npm.needs).toEqual(["verify", "publish"]);
+    expect(release.jobs.npm.permissions).toEqual({ contents: "read", "id-token": "write" });
   });
 
+  it("checks the tag before building and uploads the launcher", () => {
+    const steps = workflow().jobs.verify.steps;
+    const versionIndex = steps.findIndex((step) =>
+      step.run?.includes("GITHUB_REF_NAME#v") && step.run.includes("exit 1")
+    );
+    const buildIndex = steps.findIndex((step) => step.run === "pnpm build");
+    const upload = steps.find((step) => step.uses?.startsWith("actions/upload-artifact@"));
+
+    expect(versionIndex).toBeGreaterThanOrEqual(0);
+    expect(versionIndex).toBeLessThan(buildIndex);
+    expect(upload?.with).toMatchObject({ name: "launcher-dist" });
+  });
+});
+
+describe("release publishers", () => {
   it("logs in to GHCR with the GitHub actor and token", () => {
     const login = workflow().jobs.publish.steps.find((step) =>
       step.uses?.startsWith("docker/login-action@")
@@ -58,5 +87,20 @@ describe("release workflow", () => {
     expect(String(build?.with?.platforms)).toContain("linux/amd64");
     expect(String(build?.with?.platforms)).toContain("linux/arm64");
     expect(build?.with).toMatchObject({ push: true });
+  });
+
+  it("downloads and publishes the npm launcher without pnpm", () => {
+    const steps = workflow().jobs.npm.steps;
+    const download = steps.find((step) => step.uses?.startsWith("actions/download-artifact@"));
+    const publish = steps.find((step) => step.run?.includes("npm publish --access public --tag"));
+
+    expect(download?.with).toMatchObject({ name: "launcher-dist", path: "launcher/dist" });
+    expect(steps.some((step) => step.run?.startsWith("pnpm"))).toBe(false);
+    expect(publish?.["working-directory"]).toBe("launcher");
+  });
+
+  it("does not configure an npm registry URL in an action", () => {
+    const steps = Object.values(workflow().jobs).flatMap((job) => job.steps);
+    expect(steps.every((step) => step.with?.["registry-url"] === undefined)).toBe(true);
   });
 });

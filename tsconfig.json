@@ -8,5 +8,5 @@
     "allowImportingTsExtensions": true, "noEmit": true, "skipLibCheck": true,
     "resolveJsonModule": true
   },
-  "include": ["src", "tests", "scripts", "vitest.config.ts"]
+  "include": ["src", "tests", "scripts", "launcher/src", "vitest.config.ts"]
 }

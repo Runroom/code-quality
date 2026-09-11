@@ -1,6 +1,6 @@
 {
   "name": "@runroom/code-quality",
-  "version": "1.1.5",
+  "version": "1.1.6",
   "private": true,
   "type": "module",
   "engines": { "node": ">=24" },
@@ -10,7 +10,7 @@
     "build": "node scripts/build.ts",
     "copy-assets": "node scripts/copy-assets.ts",
     "typecheck": "tsc --noEmit",
-    "lint": "oxlint -c .oxlintrc.json src tests scripts",
+    "lint": "oxlint -c .oxlintrc.json src tests scripts launcher/src",
     "test": "vitest run",
     "capture": "node scripts/capture-native.ts",
     "integration": "node scripts/integration.ts",
