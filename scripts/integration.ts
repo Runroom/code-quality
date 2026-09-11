@@ -95,6 +95,8 @@ interface DependencyInstallPlan {
 }
 
 const FIXTURES = ["ts-project", "php-project", "python-project", "web-project"] as const;
+// web-project selects no advisory report.
+const REPORT_FIXTURES = ["ts-project", "php-project", "python-project"] as const;
 const MAX_BUFFER = 256 * 1024 * 1024;
 
 function normalizeRelative(path: string): string {
@@ -281,16 +283,25 @@ function installMissingFixtureDependencies(repositoryRoot: string, image: string
   }
 }
 
-function temporaryFixture(repositoryRoot: string, mutation: Mutation): string {
-  const sourceRoot = fixtureRoot(repositoryRoot, mutation.fixture);
+function temporaryFixture(repositoryRoot: string, fixture: string): string {
+  const sourceRoot = fixtureRoot(repositoryRoot, fixture);
   const destinationRoot = mkdtempSync(join(tmpdir(), "code-quality-integration-"));
   chmodSync(destinationRoot, 0o755);
-  copyFixture(sourceRoot, destinationRoot, mutation.fixture !== "python-project");
+  copyFixture(sourceRoot, destinationRoot, fixture !== "python-project");
   return destinationRoot;
 }
 
+function fixtureReportRow(repositoryRoot: string, image: string, fixture: string): ResultRow {
+  const root = temporaryFixture(repositoryRoot, fixture);
+  try {
+    return resultRow(`${fixture} report`, runDocker(image, ["report"], root), 0);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
 function mutationRow(repositoryRoot: string, image: string, mutation: Mutation): ResultRow {
-  const root = temporaryFixture(repositoryRoot, mutation);
+  const root = temporaryFixture(repositoryRoot, mutation.fixture);
   try {
     applyMutation(root, mutation);
     const result = runDocker(image, ["check"], root);
@@ -304,6 +315,7 @@ function integrationRows(repositoryRoot: string, image: string): ResultRow[] {
   const rows = smokeRows(image);
   installMissingFixtureDependencies(repositoryRoot, image);
   for (const fixture of FIXTURES) rows.push(fixtureCheckRow(repositoryRoot, image, fixture));
+  for (const fixture of REPORT_FIXTURES) rows.push(fixtureReportRow(repositoryRoot, image, fixture));
   for (const mutation of MUTATIONS) rows.push(mutationRow(repositoryRoot, image, mutation));
   return rows;
 }

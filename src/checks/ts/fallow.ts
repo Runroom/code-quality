@@ -24,12 +24,12 @@ const fallowSchema = z.looseObject({
   })),
 });
 
-const fallowErrorSchema = z.looseObject({
+export const fallowErrorSchema = z.looseObject({
   error: z.literal(true),
   message: z.string(),
 });
 
-function fallowConfig(ctx: CheckContext): string {
+export function fallowConfig(ctx: CheckContext): string {
   return JSON.stringify({
     ignorePatterns: [...excludeGlobs(ctx.config, true), "artifacts/**"],
     health: { maxCyclomatic: POLICY.complexity, maxCognitive: POLICY.cognitive },
