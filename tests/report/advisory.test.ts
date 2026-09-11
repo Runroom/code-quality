@@ -14,7 +14,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { ADVISORY_REPORTS } from "../../src/report/advisory.ts";
 import { reportCommand } from "../../src/cli/commands/report.ts";
 import { runCli } from "../../src/cli/program.ts";
-import type { CheckContext, ToolResult } from "../../src/core/types.ts";
+import type { CheckContext, ToolInvocation, ToolResult } from "../../src/core/types.ts";
 import { fakeDeps } from "../helpers/fake-adapter.ts";
 
 const roots: string[] = [];
@@ -60,6 +60,14 @@ function result(stdout = "{}"): ToolResult {
   return { stdout, stderr: "", exitCode: 0 };
 }
 
+function writeHtmlOutput(invocation: ToolInvocation): void {
+  const outputFlag = invocation.args.indexOf("--output");
+  if (outputFlag < 0) return;
+  const output = invocation.args[outputFlag + 1]!;
+  mkdirSync(output, { recursive: true });
+  writeFileSync(join(output, "index.html"), "ok", "utf8");
+}
+
 function reportMessages(output: string): string[] {
   return ["fallow-health", "fallow-dupes", "jscpd-html"]
     .map((id) => `Report ${id}: ${join(output, id)}\n`);
@@ -103,12 +111,7 @@ describe("advisory reports", () => {
     const messages: string[] = [];
     run.verify = () => {};
     run.spawn = (invocation) => {
-      const outputFlag = invocation.args.indexOf("--output");
-      const output = outputFlag >= 0 ? invocation.args[outputFlag + 1] : undefined;
-      if (output !== undefined) {
-        mkdirSync(output, { recursive: true });
-        writeFileSync(join(output, "index.html"), "ok", "utf8");
-      }
+      writeHtmlOutput(invocation);
       return result();
     };
     const deps = {
@@ -175,12 +178,7 @@ describe("fallow advisory configuration", () => {
         expect(config.ignorePatterns).toContain("artifacts/**");
         reportsWithConfig.add(invocation.args[0] === "health" ? "fallow-health" : "fallow-dupes");
       }
-      const outputFlag = invocation.args.indexOf("--output");
-      const output = outputFlag >= 0 ? invocation.args[outputFlag + 1] : undefined;
-      if (output !== undefined) {
-        mkdirSync(output, { recursive: true });
-        writeFileSync(join(output, "index.html"), "ok", "utf8");
-      }
+      writeHtmlOutput(invocation);
       return result();
     };
     const deps = {
@@ -220,11 +218,7 @@ describe("fallow advisory scope", () => {
           ],
         }));
       }
-      const output = invocation.args[invocation.args.indexOf("--output") + 1];
-      if (output !== undefined) {
-        mkdirSync(output, { recursive: true });
-        writeFileSync(join(output, "index.html"), "ok", "utf8");
-      }
+      writeHtmlOutput(invocation);
       return result();
     };
     const deps = {
@@ -261,11 +255,7 @@ describe("fallow advisory passthrough", () => {
     run.verify = () => {};
     run.spawn = (invocation) => {
       if (invocation.bin === "fallow" && invocation.args[0] === "health") return result(healthOutput);
-      const output = invocation.args[invocation.args.indexOf("--output") + 1];
-      if (output !== undefined) {
-        mkdirSync(output, { recursive: true });
-        writeFileSync(join(output, "index.html"), "ok", "utf8");
-      }
+      writeHtmlOutput(invocation);
       return result();
     };
     const deps = {
