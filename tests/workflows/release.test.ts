@@ -92,11 +92,16 @@ describe("release publishers", () => {
   it("downloads and publishes the npm launcher without pnpm", () => {
     const steps = workflow().jobs.npm.steps;
     const download = steps.find((step) => step.uses?.startsWith("actions/download-artifact@"));
-    const publish = steps.find((step) => step.run?.includes("npm publish --access public --tag"));
+    const npmInstall = steps.find((step) => step.run === "npm install -g npm@11.19.0");
+    const publish = steps.find((step) => step.run?.includes("npm stage publish --access public --tag"));
 
     expect(download?.with).toMatchObject({ name: "launcher-dist", path: "launcher/dist" });
     expect(steps.some((step) => step.run?.startsWith("pnpm"))).toBe(false);
     expect(publish?.["working-directory"]).toBe("launcher");
+    expect(npmInstall?.run).toBe("npm install -g npm@11.19.0");
+    const npmInstallIndex = steps.findIndex((step) => step.run === "npm install -g npm@11.19.0");
+    const publishIndex = steps.findIndex((step) => step.run?.includes("npm stage publish --access public --tag"));
+    expect(npmInstallIndex).toBeLessThan(publishIndex);
   });
 
   it("does not configure an npm registry URL in an action", () => {
