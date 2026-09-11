@@ -9,6 +9,7 @@
   "scripts": {
     "build": "node scripts/build.ts",
     "copy-assets": "node scripts/copy-assets.ts",
+    "build:launcher": "node scripts/build-launcher.ts",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint -c .oxlintrc.json src tests scripts launcher/src",
     "test": "vitest run",
