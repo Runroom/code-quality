@@ -88,5 +88,5 @@ jobs:
           version="$(node -p "require('./package.json').version")"
           tag=latest
           case "$version" in *-*) tag=next;; esac
-          npm stage publish --provenance --access public --tag "$tag"
+          npm stage publish --access public --tag "$tag"
         working-directory: launcher
