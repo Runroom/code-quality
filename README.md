@@ -15,6 +15,16 @@ Tests are excluded from every blocking check using the built-in test-file patter
 From the root of the repository, run:
 
 ```sh
+npx @runroom/code-quality init
+```
+
+This requires Docker to be running and Node 18 or newer for `npx`. Launcher version X.Y.Z always runs `ghcr.io/runroom/code-quality:vX.Y.Z`; set `CODE_QUALITY_IMAGE` to override the image.
+
+In GitHub Actions, use the reusable workflow rather than `npx`, because the launcher does not wire `GITHUB_STEP_SUMMARY` into the container.
+
+Or, without Node:
+
+```sh
 docker run --rm -v "$PWD:/work" ghcr.io/runroom/code-quality:v1 init
 ```
 
@@ -42,6 +52,12 @@ If the repository is PHP, install its application dependencies before checking. 
 Run the same `init` command from the new repository root after its first source and manifest files are present:
 
 ```sh
+npx @runroom/code-quality init
+```
+
+Or, without Node:
+
+```sh
 docker run --rm -v "$PWD:/work" ghcr.io/runroom/code-quality:v1 init
 ```
 
@@ -52,6 +68,12 @@ Review the detected languages and paths, then commit `.code-quality.yml`, `quali
 ## Local use
 
 The main local command is:
+
+```sh
+npx @runroom/code-quality check
+```
+
+Or, without Node:
 
 ```sh
 docker run --rm -v "$PWD:/work" ghcr.io/runroom/code-quality:v1 check
@@ -115,6 +137,12 @@ The reusable job checks out the full history, runs the optional setup command, a
 ## Check selection
 
 With no arguments, `check` runs all detected and enabled checks. Pass logical IDs to select a subset, for example:
+
+```sh
+npx @runroom/code-quality check complexity duplication
+```
+
+Or, without Node:
 
 ```sh
 docker run --rm -v "$PWD:/work" ghcr.io/runroom/code-quality:v1 check complexity duplication
@@ -198,13 +226,15 @@ The Drupal profile discovers custom modules, themes, and profiles and prints a `
 
 ## Version pinning
 
-Pin consumers to the major image tag `ghcr.io/runroom/code-quality:v1` and the reusable workflow reference `Runroom/code-quality/.github/workflows/quality.yml@v1`. The image carries the exact v1 tool matrix documented in [quality-gate.md](docs/quality-gate.md#v1-tool-pins); the workflow accepts only an `image-tag`, while the registry and repository remain fixed.
+Pin npm consumers to the major launcher version with `npx @runroom/code-quality@1`. Pin Docker consumers to the major image tag `ghcr.io/runroom/code-quality:v1` and the reusable workflow reference `Runroom/code-quality/.github/workflows/quality.yml@v1`. The image carries the exact v1 tool matrix documented in [quality-gate.md](docs/quality-gate.md#v1-tool-pins); the workflow accepts only an `image-tag`, while the registry and repository remain fixed.
 
 ## Security notes
 
 Consumer code executed by dependency-cruiser configuration, import-linter imports, or a setup command such as `composer install` runs inside the job container. Tool processes receive an environment allow-list plus tool-specific values rather than the complete parent environment. Consumer paths reject option-like values, colons, absolute paths, and parent-directory traversal. The reusable workflow fixes the image registry and repository to `ghcr.io/runroom/code-quality` and accepts only the tag.
 
-Accepted v1 supply-chain limitations are that global npm packages' transitive dependencies and Python packages are pinned only at the top level. Composer dependencies are fully locked, and downloaded phars are pinned and checksum-verified.
+The npm launcher runs the image through the local Docker client. `CODE_QUALITY_IMAGE` replaces the whole image reference and is validated only for shape, so set it only to images you trust: the repository is bind-mounted read-write. The Docker client inherits `DOCKER_HOST` and `DOCKER_CONTEXT` from the shell.
+
+Accepted v1 supply-chain limitations are that global npm packages' transitive dependencies and Python packages are pinned only at the top level, and that the launcher resolves the image by tag rather than digest. Composer dependencies are fully locked, and downloaded phars are pinned and checksum-verified.
 
 ## Tool-version bump procedure
 
@@ -230,3 +260,5 @@ pnpm capture <adapter-id> <fixture-directory>
 ```
 
 `pnpm verify` runs typecheck, lint, tests, and the bundle build. `pnpm integration` expects a locally built image and exercises the three fixture repositories plus deliberate mutations; on the first run, it installs fixture dependencies through the image. Native fixture capture is performed against a pinned image tool and is used by adapter parser tests.
+
+A release tag also stages the npm launcher from `launcher/` through npm trusted publishing (OIDC) with `npm stage publish`; the trusted publisher has stage-only permission, so a maintainer must review and approve the staged version with 2FA (`npm stage list @runroom/code-quality`, then `npm stage approve <stage-id>`, or from the package page on npmjs.com) before it is installable. Staging requires npm 11.15 or later, which the release job installs explicitly. The very first version of the package cannot be staged and must be published by hand from `launcher/` (`pnpm build`, then `npm publish --access public`); the trusted publisher for repository `Runroom/code-quality` and workflow `release.yml` is configured on npmjs.com afterwards. A version bump must update root `package.json`, `launcher/package.json`, and the `.version()` literal in `src/cli/program.ts` together.

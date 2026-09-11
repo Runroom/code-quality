@@ -7,6 +7,7 @@ RUN pnpm install --frozen-lockfile
 COPY src ./src
 COPY tests ./tests
 COPY scripts ./scripts
+COPY launcher ./launcher
 COPY fixtures ./fixtures
 COPY .github ./.github
 RUN pnpm typecheck && pnpm test && pnpm build

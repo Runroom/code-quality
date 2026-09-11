@@ -9,6 +9,7 @@ type Step = {
   uses?: string;
   run?: string;
   if?: string;
+  "working-directory"?: string;
   with?: Record<string, unknown>;
 };
 
@@ -56,7 +57,10 @@ describe("repository CI workflow", () => {
       "pnpm lint",
       "pnpm test",
       "pnpm build",
+      "npm pack --dry-run",
     ]);
+    expect(jobs.unit.steps.find((step) => step.run === "npm pack --dry-run")?.["working-directory"])
+      .toBe("launcher");
     expect(jobs.actionlint.steps[1]?.run).toBe(
       'docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12 -color',
     );
