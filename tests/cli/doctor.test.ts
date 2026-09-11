@@ -2,8 +2,14 @@ import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { grammarProbes, runDoctor, type DoctorDeps } from "../../src/cli/commands/doctor.ts";
+import {
+  doctorLine,
+  grammarProbes,
+  runDoctor,
+  type DoctorDeps,
+} from "../../src/cli/commands/doctor.ts";
 import { LIBRARY_PINS, TOOL_PINS } from "../../src/registry.ts";
+import { createStyle } from "../../src/cli/style.ts";
 
 function exactDependencies(): DoctorDeps {
   return {
@@ -19,6 +25,14 @@ function exactDependencies(): DoctorDeps {
 }
 
 describe("runDoctor", () => {
+  it("renders successful and failed probes in the CLI layout", () => {
+    const style = createStyle(false);
+    expect(doctorLine({ name: "oxlint", ok: true, detail: "1.82.0" }, style))
+      .toBe(" ✔ oxlint  1.82.0");
+    expect(doctorLine({ name: "phpcs", ok: false, detail: "missing" }, style))
+      .toBe(" ✖ phpcs  missing");
+  });
+
   it("accepts exact tool, library, and asset versions", () => {
     expect(runDoctor(exactDependencies()).every((probe) => probe.ok)).toBe(true);
   });

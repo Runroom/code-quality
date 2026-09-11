@@ -16,6 +16,7 @@ import { runCli } from "../../src/cli/program.ts";
 import { MAKEFILE_SNIPPET } from "../../src/cli/scaffold.ts";
 import type { CliDeps } from "../../src/cli/deps.ts";
 import { fakeAdapter, fakeDeps } from "../helpers/fake-adapter.ts";
+import { createStyle } from "../../src/cli/style.ts";
 
 const roots: string[] = [];
 
@@ -32,6 +33,7 @@ function command(
     cwd: root,
     stdout: (value) => output.push(value),
     stderr: (value) => errors.push(value),
+    style: createStyle(false),
   };
 }
 
@@ -57,8 +59,8 @@ describe("init auto-detection notices", () => {
       paths: Record<string, string[]>;
     };
     expect(config).toEqual({ languages: ["php"], paths: { php: ["src"] } });
-    expect(output.filter((line) => line.startsWith("Notice: "))).toEqual([
-      "Notice: ts: package.json detected but no ts source files under src; "
+    expect(output.filter((line) => line.startsWith(" ● Notice: "))).toEqual([
+      " ● Notice: ts: package.json detected but no ts source files under src; "
         + "add paths.ts to .code-quality.yml to enable TS checks\n",
     ]);
   });
@@ -104,7 +106,7 @@ describe("init command", () => {
     expect(existsSync(join(root, "quality/ts-beta-baseline.json"))).toBe(true);
     expect(readFileSync(join(root, "Makefile"), "utf8")).toBe(MAKEFILE_SNIPPET);
     expect(output.join("")).toContain("Kept Makefile\n");
-    expect(output.join("")).toContain("Kept existing: quality/ts-alpha-baseline.json\n");
+    expect(output.join("")).toContain(" ● Kept existing quality/ts-alpha-baseline.json\n");
     expect(errors.join(" ")).not.toContain("already exists");
   });
 
@@ -122,7 +124,24 @@ describe("init command", () => {
     )).toBe(0);
     expect(existsSync(join(root, "evidence", "ts-alpha", "stdout.log"))).toBe(true);
   });
+});
 
+describe("init Makefile output", () => {
+  it("echoes manual Makefile recipes with their leading tabs", async () => {
+    const root = mkdtempSync(join(tmpdir(), "code-quality-init-makefile-"));
+    roots.push(root);
+    mkdirSync(join(root, "src"));
+    writeFileSync(join(root, "src/index.ts"), "", "utf8");
+    writeFileSync(join(root, "package.json"), "{}", "utf8");
+    writeFileSync(join(root, "Makefile"), "quality:\n\t@echo custom\n", "utf8");
+    const output: string[] = [];
+
+    expect(await runCli(["node", "code-quality", "init"], command(root, [], output))).toBe(0);
+    const echoed = output.join("").split("\n");
+    const recipes = MAKEFILE_SNIPPET.split("\n").filter((line) => line.startsWith("\t"));
+    expect(recipes).not.toHaveLength(0);
+    for (const recipe of recipes) expect(echoed).toContain(recipe);
+  });
 });
 
 describe("init with no supported sources", () => {
@@ -181,7 +200,8 @@ describe("init with excluded sources", () => {
       expect(errors.join(" ")).toContain(
         "Nothing to check: no supported sources found. Declare languages and paths in .code-quality.yml.",
       );
-      expect(output.join(" ")).not.toContain("code-quality: PASS");
+      expect(output.join(" ")).not.toContain(" Result   PASS");
+      expect(output.join(" ")).not.toContain(" Next     ");
     },
   );
 
@@ -215,7 +235,12 @@ describe("init discovered configuration", () => {
     expect(output.join(" ")).toContain(
       "Notice: ts: no ts sources under src; using detected roots common, plugin-src, ui-src",
     );
-    expect(output.at(-1)).toBe("code-quality: PASS (1 checks)\n");
+    expect(output.at(-1)).toBe(
+      " Next     review .code-quality.yml, run make quality, commit quality/\n",
+    );
+    expect(output.filter((line) => line.includes("code-quality 1.1.7"))).toEqual([
+      " code-quality 1.1.7 · init · ts\n",
+    ]);
     expect(errors).toEqual([]);
   });
 });

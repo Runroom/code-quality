@@ -3,6 +3,8 @@ import { join } from "node:path";
 import { createAnchorService, type AnchorService } from "../../core/anchor/service.ts";
 import { parseVersion } from "../../core/runner/verify.ts";
 import { GRAMMAR_ASSETS, LIBRARY_PINS, TOOL_PINS } from "../../registry.ts";
+import { GLYPH, type Style } from "../style.ts";
+import { sanitizeLine } from "../render.ts";
 
 export interface DoctorProbe {
   name: string;
@@ -117,6 +119,9 @@ export async function grammarProbes(assets: string): Promise<DoctorProbe[]> {
   return probes;
 }
 
-export function doctorLine(probe: DoctorProbe): string {
-  return `${probe.ok ? "OK  " : "FAIL "}${probe.name} ${probe.detail}`;
+export function doctorLine(probe: DoctorProbe, style: Style): string {
+  const glyph = probe.ok ? style.green(GLYPH.pass) : style.red(GLYPH.fail);
+  const rawDetail = sanitizeLine(probe.detail);
+  const detail = probe.ok ? style.dim(rawDetail) : style.red(rawDetail);
+  return ` ${glyph} ${style.bold(sanitizeLine(probe.name))}  ${detail}`;
 }

@@ -24,6 +24,7 @@ try {
     ...(process.getuid ? { uid: process.getuid() } : {}),
     ...(process.getgid ? { gid: process.getgid() } : {}),
     image,
+    isTTY: process.stdout.isTTY === true,
   });
   const result = spawnSync("docker", args, { stdio: "inherit" });
   const outcome = resolveOutcome(result, image);

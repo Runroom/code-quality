@@ -3,19 +3,33 @@ import type { SkippedEntry } from "../core/gate/select.ts";
 import type { GateOutcome } from "../core/gate/types.ts";
 import { parseFindingKey } from "../core/types.ts";
 import type { DuplicateDetail, FindingDetail, LogicalCheckId } from "../core/types.ts";
+import { GLYPH, type Style } from "./style.ts";
 
-export interface OutcomeRow {
-  outcome: GateOutcome;
-  check: LogicalCheckId;
+export interface OutcomeRow { outcome: GateOutcome; check: LogicalCheckId; }
+
+interface FindingOutput {
+  body: string;
+  file: string;
+  line?: number | undefined;
+  column?: number | undefined;
+  rule: string;
+  anchor: string;
+  tag: string;
+  tagKind: "new" | "new?" | "worsened" | "stale" | "improved" | "baselined";
 }
 
-export interface RenderOptions {
-  all?: boolean;
-  githubActions?: boolean;
-}
+const STRIPPED_RANGES = [
+  [0, 8],
+  [11, 31],
+  [0x7F, 0x9F],
+  [0x202A, 0x202E],
+  [0x2066, 0x2069],
+] as const;
+const STRIPPED_POINTS = new Set([0x200E, 0x200F]);
 
 function isStrippedControl(code: number): boolean {
-  return code <= 8 || (code >= 11 && code <= 31) || code === 127;
+  return STRIPPED_POINTS.has(code)
+    || STRIPPED_RANGES.some(([minimum, maximum]) => code >= minimum && code <= maximum);
 }
 
 export function sanitizeLine(value: string): string {
@@ -28,30 +42,17 @@ export function sanitizeLine(value: string): string {
       continue;
     }
     newline = false;
-    const code = character.codePointAt(0) ?? 0;
-    if (isStrippedControl(code)) continue;
+    if (isStrippedControl(character.codePointAt(0) ?? 0)) continue;
     sanitized += character;
   }
-  return neutralizeCommandPrefix(sanitized);
+  return neutralizeCommandPrefix(sanitized).replaceAll("##[", "%23%23[");
 }
 
-// The Actions runner (.NET) trims leading whitespace before looking for `::`; .NET treats more
-// code points as whitespace than JS trimStart (e.g. U+0085), so match the Unicode property.
 const LEADING_WHITESPACE = /^[\p{White_Space}\u180E\uFEFF]*/u;
-
 function neutralizeCommandPrefix(line: string): string {
   const leading = LEADING_WHITESPACE.exec(line)?.[0].length ?? 0;
   if (!line.startsWith("::", leading)) return line;
   return `${line.slice(0, leading)}%3A%3A${line.slice(leading + 2)}`;
-}
-
-interface FindingOutput {
-  text: string;
-  file: string;
-  line?: number | undefined;
-  column?: number | undefined;
-  rule: string;
-  anchor: string;
 }
 
 function location(detail: FindingDetail): string {
@@ -65,12 +66,19 @@ function findingMessage(detail: FindingDetail): string {
 }
 
 function regressionTag(regression: Regression): string {
-  if (regression.kind === "new") return "[new]";
-  return `[worsened ${regression.previous} → ${regression.value}]`;
+  return regression.kind === "new" ? "new" : `worsened ${regression.previous} → ${regression.value}`;
 }
 
-function findingLine(detail: FindingDetail, tag: string): string {
-  return `${location(detail)}  ${detail.rule}  ${findingMessage(detail)}  ${tag}`;
+function tagKind(tag: string): FindingOutput["tagKind"] {
+  return tag.startsWith("worsened") ? "worsened" : tag as FindingOutput["tagKind"];
+}
+
+function findingOutput(detail: FindingDetail, tag: string): FindingOutput {
+  return {
+    body: `${location(detail)}  ${detail.rule}  ${findingMessage(detail)}`,
+    file: detail.file, line: detail.line, column: detail.column, rule: detail.rule,
+    anchor: detail.anchor, tag, tagKind: tagKind(tag),
+  };
 }
 
 function duplicateLocation(duplicate: DuplicateDetail): string {
@@ -82,41 +90,29 @@ function duplicateMessage(duplicate: DuplicateDetail): string {
   return `${duplicate.lines} lines, ${duplicate.tokens} tokens duplicated`;
 }
 
-function duplicateLine(duplicate: DuplicateDetail, tag: string): string {
-  return `${duplicateLocation(duplicate)}  duplication  ${duplicateMessage(duplicate)}  ${tag}`;
+function duplicateOutput(duplicate: DuplicateDetail, tag: string): FindingOutput {
+  return {
+    body: `${duplicateLocation(duplicate)}  duplication  ${duplicateMessage(duplicate)}`,
+    file: duplicate.file, line: duplicate.line, rule: "duplication",
+    anchor: duplicateLocation(duplicate), tag, tagKind: tagKind(tag),
+  };
 }
 
 function staleParts(entry: StaleEntry): { file: string; rule: string; anchor?: string } {
   return parseFindingKey(entry.key) ?? { file: entry.key, rule: "duplication" };
 }
 
-function staleLine(entry: StaleEntry): string {
+function staleOutput(entry: StaleEntry): FindingOutput {
   const parts = staleParts(entry);
   const anchor = parts.anchor === undefined ? "" : `  ${parts.anchor}`;
   const tag = entry.value === undefined
-    ? `[stale: was ${entry.previous}]`
-    : `[improved ${entry.previous} → ${entry.value}]`;
-  return `${parts.file}  ${parts.rule}${anchor}  ${tag}`;
-}
-
-function findingOutput(detail: FindingDetail, tag: string): FindingOutput {
+    ? `stale (was ${entry.previous})`
+    : `improved ${entry.previous} → ${entry.value}`;
   return {
-    text: findingLine(detail, tag),
-    file: detail.file,
-    line: detail.line,
-    column: detail.column,
-    rule: detail.rule,
-    anchor: detail.anchor,
-  };
-}
-
-function staleOutput(entry: StaleEntry): FindingOutput {
-  const parts = staleParts(entry);
-  return {
-    text: staleLine(entry),
-    file: parts.file,
-    rule: parts.rule,
-    anchor: parts.anchor ?? "",
+    body: `${parts.file}  ${parts.rule}${anchor}`, file: parts.file,
+    rule: parts.rule, anchor: parts.anchor ?? "",
+    tag,
+    tagKind: entry.value === undefined ? "stale" : "improved",
   };
 }
 
@@ -124,10 +120,8 @@ function keyOutput(key: string, tag: string): FindingOutput {
   const parts = parseFindingKey(key) ?? { file: key, rule: "duplication", anchor: "" };
   const anchor = parts.anchor === "" ? "" : `  ${parts.anchor}`;
   return {
-    text: `${parts.file}  ${parts.rule}${anchor}  ${tag}`,
-    file: parts.file,
-    rule: parts.rule,
-    anchor: parts.anchor,
+    body: `${parts.file}  ${parts.rule}${anchor}`, file: parts.file,
+    rule: parts.rule, anchor: parts.anchor, tag, tagKind: tagKind(tag),
   };
 }
 
@@ -140,18 +134,17 @@ function compareFinding(left: FindingOutput, right: FindingOutput): number {
   if (file !== 0) return file;
   const line = (left.line ?? Number.MAX_SAFE_INTEGER) - (right.line ?? Number.MAX_SAFE_INTEGER);
   if (line !== 0) return line;
-  const column = (left.column ?? Number.MAX_SAFE_INTEGER)
-    - (right.column ?? Number.MAX_SAFE_INTEGER);
+  const column = (left.column ?? Number.MAX_SAFE_INTEGER) - (right.column ?? Number.MAX_SAFE_INTEGER);
   if (column !== 0) return column;
   const rule = compareText(left.rule, right.rule);
   return rule === 0 ? compareText(left.anchor, right.anchor) : rule;
 }
 
-function normalFindingLines(outcome: GateOutcome, all: boolean): string[] {
+function normalFindingLines(outcome: GateOutcome, all: boolean): FindingOutput[] {
   const outputs = outcome.regressions.map((regression) => {
     const detail = outcome.details[regression.key];
-    if (detail !== undefined) return findingOutput(detail, regressionTag(regression));
-    return keyOutput(regression.key, regressionTag(regression));
+    const tag = regressionTag(regression);
+    return detail === undefined ? keyOutput(regression.key, tag) : findingOutput(detail, tag);
   });
   outputs.push(...outcome.stale.map(staleOutput));
   if (all) {
@@ -160,31 +153,36 @@ function normalFindingLines(outcome: GateOutcome, all: boolean): string[] {
     for (const key of Object.keys(outcome.details)) {
       const detail = outcome.details[key];
       if (!regressions.has(key) && !stale.has(key) && detail !== undefined) {
-        outputs.push(findingOutput(detail, "[baselined]"));
+        outputs.push(findingOutput(detail, "baselined"));
       }
     }
   }
-  return outputs.toSorted(compareFinding).map((output) => output.text);
+  return outputs.toSorted(compareFinding);
 }
 
-function duplicateFindingLines(outcome: GateOutcome, all: boolean): string[] {
+function duplicateFindingLines(outcome: GateOutcome, all: boolean): FindingOutput[] {
   const duplicates = outcome.duplicates ?? [];
   const hasRegressions = outcome.regressions.length > 0;
   const newDuplicates = hasRegressions ? duplicates.filter((entry) => entry.isNew) : [];
   const fallback = hasRegressions && newDuplicates.length === 0;
   const printed = fallback ? duplicates : newDuplicates;
-  const lines = printed.map((entry) => duplicateLine(entry, fallback ? "[new?]" : "[new]"));
+  const lines = printed.map((entry) => duplicateOutput(entry, fallback ? "new?" : "new"));
   for (const regression of outcome.regressions) {
     if (regression.kind === "worsened") {
-      lines.push(`${regression.key}  duplication  clone occurrences ${regression.previous} → `
-        + `${regression.value}  ${regressionTag(regression)}`);
+      const output = keyOutput(
+        regression.key,
+        `worsened ${regression.previous} → ${regression.value}`,
+      );
+      output.body = `${regression.key}  duplication  clone occurrences ${regression.previous} → `
+        + `${regression.value}`;
+      lines.push(output);
     }
   }
-  lines.push(...outcome.stale.map(staleLine));
+  lines.push(...outcome.stale.map(staleOutput));
   if (all) {
     const alreadyPrinted = new Set(printed);
     for (const duplicate of duplicates) {
-      if (!alreadyPrinted.has(duplicate)) lines.push(duplicateLine(duplicate, "[baselined]"));
+      if (!alreadyPrinted.has(duplicate)) lines.push(duplicateOutput(duplicate, "baselined"));
     }
   }
   return lines;
@@ -195,15 +193,16 @@ function stripControls(value: string): string {
     .filter((character) => character === "\r" || !isStrippedControl(character.codePointAt(0) ?? 0))
     .join("");
 }
-
 function escapeData(value: string): string {
-  return stripControls(value).replaceAll("%", "%25").replaceAll("\r", "%0D").replaceAll("\n", "%0A");
+  return stripControls(value)
+    .replaceAll("%", "%25")
+    .replaceAll("##[", "%23%23[")
+    .replaceAll("\r", "%0D")
+    .replaceAll("\n", "%0A");
 }
-
 function escapeProperty(value: string): string {
   return escapeData(value).replaceAll(",", "%2C").replaceAll(":", "%3A");
 }
-
 function annotation(detail: FindingDetail, id: string): string {
   const line = detail.line === undefined ? "" : `,line=${detail.line}`;
   const column = detail.column === undefined ? "" : `,col=${detail.column}`;
@@ -211,19 +210,16 @@ function annotation(detail: FindingDetail, id: string): string {
   return `::error file=${escapeProperty(detail.file)}${line}${column},title=${title}::`
     + escapeData(findingMessage(detail));
 }
-
 function duplicateAnnotation(duplicate: DuplicateDetail, id: string): string {
   return `::error file=${escapeProperty(duplicate.file)},line=${duplicate.line},title=`
     + `${escapeProperty(`${id} duplication`)}::${escapeData(duplicateMessage(duplicate))}`;
 }
-
 function annotationLines(outcome: GateOutcome, check: LogicalCheckId): string[] {
   if (check === "duplication") {
     const duplicates = outcome.duplicates ?? [];
     if (outcome.regressions.length === 0) return [];
     const selected = duplicates.some((entry) => entry.isNew)
-      ? duplicates.filter((entry) => entry.isNew)
-      : duplicates;
+      ? duplicates.filter((entry) => entry.isNew) : duplicates;
     return selected.map((entry) => duplicateAnnotation(entry, outcome.id));
   }
   return outcome.regressions.flatMap((entry) => {
@@ -232,13 +228,29 @@ function annotationLines(outcome: GateOutcome, check: LogicalCheckId): string[] 
   });
 }
 
-export function renderOutcome(row: OutcomeRow, options: RenderOptions = {}): string[] {
-  const lines = row.check === "duplication"
-    ? duplicateFindingLines(row.outcome, options.all === true)
-    : normalFindingLines(row.outcome, options.all === true);
-  const safeLines = lines.map(sanitizeLine);
-  if (options.githubActions === true) safeLines.push(...annotationLines(row.outcome, row.check));
-  return safeLines;
+function styledFinding(output: FindingOutput, style: Style): string {
+  const body = sanitizeLine(output.body);
+  const tag = sanitizeLine(output.tag);
+  if (output.tagKind === "new" || output.tagKind === "new?") {
+    return `${body}  ${style.bold(style.red(tag))}`;
+  }
+  if (output.tagKind === "worsened") return `${body}  ${style.red(tag)}`;
+  if (output.tagKind === "baselined") return `${body}  ${style.gray(tag)}`;
+  return `${body}  ${style.yellow(tag)}`;
+}
+
+export function plural(count: number, singular: string, pluralNoun = `${singular}s`): string {
+  return `${count} ${count === 1 ? singular : pluralNoun}`;
+}
+
+export function fieldLine(
+  label: string,
+  value: string,
+  style: Style,
+  boldLabel = false,
+): string {
+  const padded = sanitizeLine(label).padEnd(8);
+  return ` ${boldLabel ? style.bold(padded) : padded} ${value}`;
 }
 
 function errorMessage(outcome: GateOutcome): string | undefined {
@@ -248,25 +260,75 @@ function errorMessage(outcome: GateOutcome): string | undefined {
   return outcome.message.startsWith(prefix) ? outcome.message.slice(prefix.length) : outcome.message;
 }
 
-function resultBody(row: OutcomeRow, toolWidth: number): string {
-  const error = errorMessage(row.outcome);
-  if (error !== undefined) return `ERROR: ${error}`;
-  const noun = row.check === "duplication" ? "clone occurrences" : "findings";
-  const counts = `${row.outcome.count} ${noun} · ${row.outcome.regressions.length} new · `
-    + `${row.outcome.stale.length} stale`;
-  return `${row.outcome.tool.padEnd(toolWidth)}  ${counts}  ${row.outcome.ok ? "OK" : "FAIL"}`;
+export function renderHeader(
+  input: { version: string; languages: readonly string[]; checks: number },
+  style: Style,
+): string {
+  const title = sanitizeLine(`code-quality ${input.version}`);
+  const suffix = sanitizeLine(` · ${input.languages.join(", ")} · ${plural(input.checks, "check")}`);
+  return ` ${style.bold(title)}${style.dim(suffix)}`;
 }
 
-export function renderSummary(rows: readonly OutcomeRow[], skipped: readonly SkippedEntry[]): string[] {
-  const idWidth = Math.max(...[...rows.map((row) => row.outcome.id), ...skipped.map((row) => row.id)]
-    .map((id) => id.length), 0);
-  const toolWidth = Math.max(...rows.map((row) => row.outcome.tool.length), 0);
-  const lines = rows.map((row) => `${row.outcome.id.padEnd(idWidth)}  ${resultBody(row, toolWidth)}`);
-  lines.push(...skipped.map((row) => `${row.id.padEnd(idWidth)}  skipped: ${row.reason}`));
-  const failures = rows.filter((row) => !row.outcome.ok).length;
-  const total = rows.length;
-  lines.push(failures === 0
-    ? `code-quality: PASS (${total} checks)`
-    : `code-quality: FAIL (${failures} of ${total} checks)`);
-  return lines.map(sanitizeLine);
+export function renderCheck(
+  row: OutcomeRow,
+  options: { all: boolean; githubActions: boolean; idWidth: number; toolWidth: number },
+  style: Style,
+): string[] {
+  const { outcome } = row;
+  const glyph = outcome.ok ? style.green(GLYPH.pass) : style.red(GLYPH.fail);
+  const id = style.bold(sanitizeLine(outcome.id).padEnd(options.idWidth));
+  const error = errorMessage(outcome);
+  let status: string;
+  if (error !== undefined) {
+    status = ` ${glyph} ${id}  ${style.bold(style.red("ERROR"))}  ${sanitizeLine(error)}`;
+  } else {
+    let counts = row.check === "duplication"
+      ? plural(outcome.count, "clone")
+      : plural(outcome.count, "finding");
+    if (outcome.regressions.length > 0) {
+      counts += ` · ${style.bold(style.red(`${outcome.regressions.length} new`))}`;
+    }
+    if (outcome.stale.length > 0) counts += ` · ${style.yellow(`${outcome.stale.length} stale`)}`;
+    const tool = style.dim(sanitizeLine(outcome.tool).padEnd(options.toolWidth));
+    status = ` ${glyph} ${id}  ${tool}  ${counts}`;
+  }
+  const outputs = row.check === "duplication"
+    ? duplicateFindingLines(outcome, options.all)
+    : normalFindingLines(outcome, options.all);
+  const findings = outputs.map((output) => `   ${GLYPH.branch} ${styledFinding(output, style)}`);
+  if (options.githubActions) findings.push(...annotationLines(outcome, row.check));
+  return [status, ...findings];
+}
+
+export function renderSkipped(entry: SkippedEntry, idWidth: number, style: Style): string {
+  return style.dim(` ${GLYPH.skip} ${sanitizeLine(entry.id).padEnd(idWidth)}  skipped: ${sanitizeLine(entry.reason)}`);
+}
+
+export function renderSummary(rows: readonly OutcomeRow[], skipped: readonly SkippedEntry[], style: Style): string[] {
+  const passed = rows.filter((row) => row.outcome.ok).length;
+  const failed = rows.length - passed;
+  const regressions = rows.reduce((total, row) => total + row.outcome.regressions.length, 0);
+  const stale = rows.reduce((total, row) => total + row.outcome.stale.length, 0);
+  const lines = [""];
+  let checks = `${passed} passed`;
+  if (failed > 0) checks += ` · ${style.red(`${failed} failed`)}`;
+  lines.push(fieldLine("Checks", checks, style));
+  if (regressions > 0) {
+    lines.push(fieldLine("Blocking", style.red(`${plural(regressions, "new finding")}`), style));
+  }
+  if (stale > 0) {
+    lines.push(fieldLine(
+      "Stale",
+      style.yellow(`${plural(stale, "baseline entry", "baseline entries")} to tighten`),
+      style,
+    ));
+  }
+  if (skipped.length > 0) lines.push(style.dim(fieldLine("Skipped", String(skipped.length), style)));
+  const result = failed === 0 ? style.bold(style.green("PASS")) : style.bold(style.red("FAIL"));
+  lines.push(fieldLine("Result", result, style));
+  return lines;
+}
+
+export function renderNotice(message: string, style: Style): string {
+  return ` ${style.yellow(GLYPH.bullet)} ${style.dim(`Notice: ${sanitizeLine(message)}`)}`;
 }

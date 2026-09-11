@@ -14,6 +14,8 @@ import { POLICY } from "../core/config/policy.ts";
 import type { CheckContext, Language, ToolInvocation, ToolResult } from "../core/types.ts";
 import type { ResolvedConfig } from "../core/config/types.ts";
 import type { ReportDeps } from "./types.ts";
+import { GLYPH } from "../cli/style.ts";
+import { sanitizeLine } from "../cli/render.ts";
 
 export interface AdvisoryReport {
   id: string;
@@ -267,10 +269,14 @@ export async function reportCommand(deps: ReportDeps): Promise<number> {
     const config = loadConfig(deps.cwd);
     const reports = selectedReports(config);
     const completed = reports.map((report) => ({ id: report.id, directory: runReport(report, config, deps) }));
-    for (const report of completed) deps.stdout(`Report ${report.id}: ${report.directory}\n`);
+    const idWidth = Math.max(...completed.map((report) => report.id.length), 0);
+    for (const report of completed) {
+      deps.stdout(` ${deps.style.green(GLYPH.pass)} ${sanitizeLine(report.id).padEnd(idWidth)}  `
+        + `${deps.style.dim(sanitizeLine(report.directory))}\n`);
+    }
     return 0;
   } catch (error) {
-    deps.stderr(`${error instanceof Error ? error.message : String(error)}\n`);
+    deps.stderr(`${sanitizeLine(error instanceof Error ? error.message : String(error))}\n`);
     return 1;
   }
 }

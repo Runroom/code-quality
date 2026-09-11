@@ -74,7 +74,6 @@ export const fallowAdapter: CheckAdapter = {
       "--max-cognitive", "0", "--report-only", "--no-cache", "--quiet",
       "--format", "json", "--config", join(ctx.tempDir, "fallowrc.json"),
     ],
-    env: { FALLOW_TELEMETRY_DISABLED: "1" },
     exitCodes: [0, 2],
   }),
   parse: (ctx, result) => fallowFindings(

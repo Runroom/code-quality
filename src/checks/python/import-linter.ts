@@ -186,7 +186,7 @@ export const importLinterAdapter: CheckAdapter = {
     if (selection?.kind !== "file") throw new Error("import-linter rules file is unavailable");
     const pythonPath = [...ctx.paths.map((path) => `${ctx.root}/${path}`), ctx.root].join(":");
     return { bin: "lint-imports", args: ["--config", selection.rulesFile, "--no-logo", "--no-cache"],
-      cwd: ctx.root, env: { PYTHONPATH: pythonPath, NO_COLOR: "1" }, exitCodes: [0, 1] };
+      cwd: ctx.root, env: { PYTHONPATH: pythonPath }, exitCodes: [0, 1] };
   },
   parse: (ctx, result) => Promise.resolve(importLinterFindings(ctx, result.stdout)),
 };

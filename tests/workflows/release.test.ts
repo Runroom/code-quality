@@ -93,14 +93,14 @@ describe("release publishers", () => {
     const steps = workflow().jobs.npm.steps;
     const download = steps.find((step) => step.uses?.startsWith("actions/download-artifact@"));
     const npmInstall = steps.find((step) => step.run === "npm install -g npm@11.19.0");
-    const publish = steps.find((step) => step.run?.includes("npm stage publish --access public --tag"));
+    const publish = steps.find((step) => step.run?.includes("npm stage publish --provenance --access public --tag"));
 
     expect(download?.with).toMatchObject({ name: "launcher-dist", path: "launcher/dist" });
     expect(steps.some((step) => step.run?.startsWith("pnpm"))).toBe(false);
     expect(publish?.["working-directory"]).toBe("launcher");
     expect(npmInstall?.run).toBe("npm install -g npm@11.19.0");
     const npmInstallIndex = steps.findIndex((step) => step.run === "npm install -g npm@11.19.0");
-    const publishIndex = steps.findIndex((step) => step.run?.includes("npm stage publish --access public --tag"));
+    const publishIndex = steps.findIndex((step) => step.run?.includes("npm stage publish --provenance --access public --tag"));
     expect(npmInstallIndex).toBeLessThan(publishIndex);
   });
 

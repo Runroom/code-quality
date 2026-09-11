@@ -71,7 +71,7 @@ it("passes only allow-listed, constant, and invocation environment variables", (
       {
         bin: "node",
         args: ["-e", "console.log(JSON.stringify(process.env))"],
-        env: { CODE_QUALITY_EXPLICIT: "visible" },
+        env: { CODE_QUALITY_EXPLICIT: "visible", NO_COLOR: "0" },
         exitCodes: [0],
       },
       process.cwd(),
@@ -80,6 +80,7 @@ it("passes only allow-listed, constant, and invocation environment variables", (
     expect(env.CODE_QUALITY_TEST_SECRET).toBeUndefined();
     expect(env.CODE_QUALITY_EXPLICIT).toBe("visible");
     expect(env.CI).toBe("true");
+    expect(env.NO_COLOR).toBe("1");
     expect(env.FALLOW_TELEMETRY_DISABLED).toBe("1");
     expect(env.JSCPD_NO_TIPS).toBe("1");
     expect(env.PATH).toBe(process.env.PATH);

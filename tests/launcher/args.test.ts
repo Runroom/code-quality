@@ -19,6 +19,7 @@ function context(overrides: Partial<LaunchContext> = {}): LaunchContext {
     env: {},
     platform: "darwin",
     image: DEFAULT_IMAGE,
+    isTTY: false,
     ...overrides,
   };
 }
@@ -77,6 +78,31 @@ describe("launcher Docker arguments", () => {
       "run", "--rm", "-v", "/repo:/work",
       "-e", "CI", "-e", "GITHUB_ACTIONS", DEFAULT_IMAGE,
     ]);
+  });
+
+  it("forwards defined color variables", () => {
+    expect(buildDockerArgs(context({ env: { NO_COLOR: "", FORCE_COLOR: "0" } }))).toEqual([
+      "run", "--rm", "-v", "/repo:/work",
+      "-e", "NO_COLOR", "-e", "FORCE_COLOR", DEFAULT_IMAGE,
+    ]);
+  });
+
+  it("enables color for a TTY when no color environment variable is set", () => {
+    expect(buildDockerArgs(context({ isTTY: true }))).toContain("FORCE_COLOR=1");
+  });
+
+  it("does not inject color when non-empty NO_COLOR is set", () => {
+    expect(buildDockerArgs(context({ isTTY: true, env: { NO_COLOR: "1" } })))
+      .not.toContain("FORCE_COLOR=1");
+  });
+
+  it("injects color when NO_COLOR is empty", () => {
+    expect(buildDockerArgs(context({ isTTY: true, env: { NO_COLOR: "" } })))
+      .toContain("FORCE_COLOR=1");
+  });
+
+  it("does not inject color without a TTY", () => {
+    expect(buildDockerArgs(context({ isTTY: false }))).not.toContain("FORCE_COLOR=1");
   });
 
   it("does not forward undefined CI variables", () => {
