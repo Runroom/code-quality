@@ -23,12 +23,13 @@ Review the generated `.code-quality.yml`, source paths, `.github/workflows/quali
 - `.code-quality.yml`;
 - `quality/<adapter>-baseline.json`;
 - `.github/workflows/quality.yml`;
-- `Makefile` if absent, with `quality`, `quality-all`, `quality-baseline`, `quality-report`, and `quality-doctor` targets plus the `CODE_QUALITY_IMAGE` variable; and
+- `Makefile` created if absent, or extended when it exists without these targets, with `quality`, `quality-all`, `quality-baseline`, `quality-report`, and `quality-doctor` targets plus the `CODE_QUALITY_IMAGE` variable; existing quality targets, a `.PHONY` entry for them, or a custom `.RECIPEPREFIX` are left untouched and the snippet is printed instead; and
 - the `.gitignore` entry used by `report --output` (`artifacts/quality/`).
 
 Commit the `quality/` baselines along with the reviewed configuration. The directory produced by `report --output` is per-run evidence and is never committed. Existing findings are recorded once; later checks fail on new or worsened findings and on stale baseline entries.
 
 The generated Makefile uses `$$PWD`, which is Make escaping for `$PWD`; run its targets through `make` so Make expands the variable.
+Recipe lines must start with a tab; a snippet pasted from a terminal loses the tabs and fails with `multiple target patterns`, and `init` reports the offending line.
 
 `init` uses conventional source roots: `src/` and `assets/` for TS/JS, `src/`, `lib/`, and `app/` for PHP, `src/` for Python, and `templates/` and `assets/` for web sources. If an auto-detected manifest has no source files in its default roots, `init` discovers eligible depth-1 source directories and records them in `paths.<language>`; excluded and conventional non-source directories are ignored. If no roots are discovered, that language is omitted and the CLI prints a `Notice: ...` line explaining how to add `paths.<language>`. Explicitly configured languages and paths still fail when they contain no source files.
 

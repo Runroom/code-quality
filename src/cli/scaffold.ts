@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { stringify } from "yaml";
@@ -39,6 +39,11 @@ quality-doctor:
 
 const QUALITY_GITIGNORE_ENTRIES = ["artifacts/quality/"] as const;
 const QUALITY_GITIGNORE_COMMENT = "# code-quality";
+const MAKEFILE_NAMES = ["GNUmakefile", "makefile", "Makefile"] as const;
+const CODE_QUALITY_ASSIGNMENT = /^[ \t]*(?:export[ \t]+|override[ \t]+)?CODE_QUALITY[ \t]*(?::::?|[:?+!])?=/m;
+const QUALITY_TARGET = /^[ \t]*quality(?:-all|-baseline|-report|-doctor)?[ \t]*::?/m;
+const PHONY_QUALITY_TARGET = /^[ \t]*\.PHONY[ \t]*:.*(?<![\w-])quality(?:-all|-baseline|-report|-doctor)?(?![\w-])/m;
+const RECIPE_PREFIX = /^[ \t]*\.RECIPEPREFIX\b/m;
 
 function configPaths(config: ResolvedConfig): Partial<Record<Language, string[]>> {
   const paths: Partial<Record<Language, string[]>> = {};
@@ -66,13 +71,86 @@ function writeWorkflow(root: string): void {
   writeMissing(root, ".github/workflows/quality.yml", CALLER_WORKFLOW);
 }
 
-function writeMakefile(root: string, log: (value: string) => void): void {
-  if (existsSync(join(root, "Makefile"))) {
-    log("Kept existing Makefile; add these targets to it if you want make quality:");
+function resolveMakefile(root: string): { name: typeof MAKEFILE_NAMES[number]; path: string } | undefined {
+  const entries = readdirSync(root);
+  const name = MAKEFILE_NAMES.find((candidate) => entries.includes(candidate));
+  return name === undefined ? undefined : { name, path: join(root, name) };
+}
+
+function hasQualityTarget(content: string): boolean {
+  return QUALITY_TARGET.test(content) || PHONY_QUALITY_TARGET.test(content);
+}
+
+function spaceIndentedRecipeLine(content: string): number | undefined {
+  const lines = content.split(/\r?\n/);
+  for (let index = 0; index < lines.length - 1; index += 1) {
+    if (QUALITY_TARGET.test(lines[index] ?? "") && /^ +[^\s#]/.test(lines[index + 1] ?? "")) {
+      return index + 2;
+    }
+  }
+  return undefined;
+}
+
+function readMakefile(
+  resolved: { name: typeof MAKEFILE_NAMES[number]; path: string },
+  log: (value: string) => void,
+): string | undefined {
+  try {
+    return readFileSync(resolved.path, "utf8");
+  } catch (error) {
+    const code = error instanceof Error && "code" in error ? error.code : "unknown";
+    log(`Kept ${resolved.name}: could not read it (${code})`);
+    return undefined;
+  }
+}
+
+function keepExistingMakefile(
+  name: typeof MAKEFILE_NAMES[number],
+  existing: string,
+  log: (value: string) => void,
+): boolean {
+  if (CODE_QUALITY_ASSIGNMENT.test(existing)) {
+    const line = spaceIndentedRecipeLine(existing);
+    if (line !== undefined) {
+      log(`Kept ${name}: quality recipes at line ${line} are indented with spaces; Make needs a tab (fix: replace the leading spaces with one tab).`);
+    } else {
+      log(`Kept ${name}`);
+    }
+    return true;
+  }
+  if (hasQualityTarget(existing) || RECIPE_PREFIX.test(existing)) {
+    log(`Kept ${name}: it already defines a quality target or a custom recipe prefix. Add these targets by hand; recipe lines must start with a tab:`);
     log(MAKEFILE_SNIPPET);
+    return true;
+  }
+  return false;
+}
+
+function makefilePrefix(existing: string, newline: string): string {
+  return existing.length === 0
+    ? ""
+    : existing.endsWith(newline + newline)
+      ? ""
+      : existing.endsWith("\n")
+        ? newline
+        : newline + newline;
+}
+
+function writeMakefile(root: string, log: (value: string) => void): void {
+  const resolved = resolveMakefile(root);
+  if (resolved === undefined) {
+    writeFileSync(join(root, "Makefile"), MAKEFILE_SNIPPET, "utf8");
+    log("Created Makefile (make quality)");
     return;
   }
-  writeFileSync(join(root, "Makefile"), MAKEFILE_SNIPPET, "utf8");
+
+  const existing = readMakefile(resolved, log);
+  if (existing === undefined || keepExistingMakefile(resolved.name, existing, log)) return;
+
+  const newline = existing.includes("\r\n") ? "\r\n" : "\n";
+  const snippet = MAKEFILE_SNIPPET.replaceAll("\n", newline);
+  writeFileSync(resolved.path, `${existing}${makefilePrefix(existing, newline)}${snippet}`, "utf8");
+  log(`Updated ${resolved.name} (make quality)`);
 }
 
 function writeGitignore(root: string, log: (value: string) => void): void {
