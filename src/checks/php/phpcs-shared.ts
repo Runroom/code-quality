@@ -2,6 +2,8 @@ import { z } from "zod";
 
 import { addAnchoredFinding, excludeGlobs, extractMeasurement, fail, FindingsBuilder, relativizeFrom, xml } from "../shared/kit.ts";
 import type { CheckContext, ParsedFindings, ToolInvocation } from "../shared/kit.ts";
+import { phpToolExtensions } from "../../core/config/sources.ts";
+import type { ResolvedConfig } from "../../core/config/types.ts";
 
 const phpcsSchema = z.looseObject({
   totals: z.looseObject({
@@ -25,13 +27,17 @@ export interface PhpcsRule {
   minimumExclusive?: number;
 }
 
-export function phpcsRuleset(name: string, rules: string): string {
+export function phpcsRuleset(name: string, rules: string, extensions: readonly string[]): string {
   const installed = xml("config", {
     name: "installed_paths",
     value: "/opt/php/phpcs/vendor/slevomat/coding-standard,/opt/php/phpcs-standard",
   });
-  const extensions = xml("arg", { name: "extensions", value: "php" });
-  return `<?xml version="1.0"?>\n${xml("ruleset", { name }, [installed, extensions, rules])}\n`;
+  const extensionArg = xml("arg", { name: "extensions", value: extensions.join(",") });
+  return `<?xml version="1.0"?>\n${xml("ruleset", { name }, [installed, extensionArg, rules])}\n`;
+}
+
+export function phpcsExtensions(config: Pick<ResolvedConfig, "isDrupal">): string[] {
+  return phpToolExtensions(config.isDrupal);
 }
 
 export function phpcsCommand(ctx: CheckContext, rulesetFile: string): ToolInvocation {

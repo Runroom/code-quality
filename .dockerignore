@@ -3,5 +3,6 @@ dist
 launcher/dist
 artifacts
 fixtures/*/artifacts
+fixtures/*/node_modules
 fixtures/php-project/vendor
 .git

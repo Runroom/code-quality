@@ -4,6 +4,7 @@ import { dirname, join, relative } from "node:path";
 import { z } from "zod";
 
 import { isInScope, relativize } from "../checks/shared/paths.ts";
+import { jscpdPhpExtensions } from "../checks/shared/jscpd.ts";
 import { fail } from "../core/errors.ts";
 import { loadConfig } from "../core/config/load.ts";
 import { artifactDir } from "../core/runner/artifacts.ts";
@@ -194,11 +195,15 @@ function fallowDupesValidate(ctx: CheckContext, result: ToolResult): void {
 }
 
 function jscpdHtmlCommand(ctx: CheckContext): ToolInvocation {
+  const phpExtensions = jscpdPhpExtensions(ctx.config);
   return {
     bin: "jscpd",
     args: [
       "--mode", POLICY.duplication.mode, "--min-tokens", String(POLICY.duplication.minTokens),
       "--min-lines", String(POLICY.duplication.minLines), "--reporters", "html",
+      ...(phpExtensions === undefined
+        ? []
+        : ["--formats-exts", `php:${phpExtensions.join(",")}`]),
       "--output", outputPath(ctx, "jscpd-html"), ...reportPaths(ctx),
     ],
     exitCodes: [0],

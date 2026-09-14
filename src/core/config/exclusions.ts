@@ -33,6 +33,25 @@ export const BUILTIN_EXCLUSIONS = [
   "**/var/**",
 ] as const;
 
+export const PAYLOAD_NEXT_EXCLUSIONS = [
+  "**/payload-types.ts",
+  "**/importMap.js",
+  "**/app/[(]payload[)]/**",
+  "**/migrations/**",
+  "**/migrations-*/**",
+  "**/seed/**",
+  ".next/**",
+  "next-env.d.ts",
+] as const;
+
+export function payloadNextExclusions(tsRoots: readonly string[]): string[] {
+  const scoped = PAYLOAD_NEXT_EXCLUSIONS.slice(0, -2);
+  return [
+    ...tsRoots.flatMap((root) => scoped.map((pattern) => `${root}/${pattern}`)),
+    ...PAYLOAD_NEXT_EXCLUSIONS.slice(-2),
+  ];
+}
+
 export function isExcluded(file: string, patterns: readonly string[]): boolean {
   return patterns.some((pattern) => picomatch(pattern, { dot: true })(file));
 }

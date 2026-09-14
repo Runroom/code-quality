@@ -18,6 +18,7 @@ import {
   formatResultTable,
   dockerArgs,
   MUTATIONS,
+  mutationEvidenceOk,
   plannedDependencyInstalls,
   shouldCopyFixturePath,
 } from "../../scripts/integration.ts";
@@ -33,27 +34,35 @@ it("runs mounted Docker fixtures as the host user when IDs are available", () =>
   }
 });
 
-it("plans installs only for fixture dependencies that are missing", () => {
-  expect(plannedDependencyInstalls({ tsNodeModules: false, phpVendor: false })).toEqual([
-    {
-      fixture: "ts-project",
-      entrypoint: "npm",
-      command: ["install", "--no-audit", "--no-fund"],
-    },
-    {
-      fixture: "php-project",
-      entrypoint: "composer",
-      command: ["install", "--no-interaction"],
-    },
-  ]);
-  expect(plannedDependencyInstalls({ tsNodeModules: true, phpVendor: false })).toEqual([
-    {
-      fixture: "php-project",
-      entrypoint: "composer",
-      command: ["install", "--no-interaction"],
-    },
-  ]);
-  expect(plannedDependencyInstalls({ tsNodeModules: true, phpVendor: true })).toEqual([]);
+const tsInstall = {
+  fixture: "ts-project",
+  entrypoint: "npm",
+  command: ["install", "--ignore-scripts", "--no-audit", "--no-fund"],
+};
+const payloadInstall = {
+  fixture: "payload-project",
+  entrypoint: "npm",
+  command: ["install", "--ignore-scripts", "--no-audit", "--no-fund"],
+};
+const phpInstall = {
+  fixture: "php-project",
+  entrypoint: "composer",
+  command: ["install", "--no-interaction"],
+};
+
+const dependencyInstallCases = [
+  [{ tsNodeModules: false, phpVendor: false, payloadNodeModules: false }, [tsInstall, phpInstall, payloadInstall]],
+  [{ tsNodeModules: true, phpVendor: false, payloadNodeModules: false }, [phpInstall, payloadInstall]],
+  [{ tsNodeModules: true, phpVendor: true, payloadNodeModules: false }, [payloadInstall]],
+  [{ tsNodeModules: false, phpVendor: false, payloadNodeModules: true }, [tsInstall, phpInstall]],
+  [{ tsNodeModules: true, phpVendor: false, payloadNodeModules: true }, [phpInstall]],
+  [{ tsNodeModules: false, phpVendor: true, payloadNodeModules: true }, [tsInstall]],
+  [{ tsNodeModules: false, phpVendor: true, payloadNodeModules: false }, [tsInstall, payloadInstall]],
+  [{ tsNodeModules: true, phpVendor: true, payloadNodeModules: true }, []],
+] as const;
+
+it.each(dependencyInstallCases)("plans installs only for missing dependencies (%#)", (state, expected) => {
+  expect(plannedDependencyInstalls(state)).toEqual(expected);
 });
 
 function withTempRoot(action: (root: string) => void): void {
@@ -112,7 +121,6 @@ it("applies content mutations", () => {
       fixture: "ts-project",
       file: "src/content.ts",
       content: "content\n",
-      expect: "regressions",
     });
     expect(readFileSync(join(root, "src", "content.ts"), "utf8")).toBe("content\n");
   });
@@ -139,6 +147,40 @@ it("defines a web duplication copy mutation", () => {
     copyFrom: "templates/page-a.twig",
     expect: "regressions",
   });
+});
+
+it("defines Drupal, Payload, and monorepo mutations", () => {
+  expect(MUTATIONS).toContainEqual(expect.objectContaining({
+    fixture: "drupal-project",
+    file: "web/modules/custom/demo/demo.module",
+    expect: "regressions",
+  }));
+  expect(MUTATIONS).toContainEqual(expect.objectContaining({
+    fixture: "drupal-project",
+    file: "web/modules/custom/demo/demo_copy.module",
+    copyFrom: "web/modules/custom/demo/demo.module",
+    expect: "regressions",
+  }));
+  expect(MUTATIONS).toContainEqual(expect.objectContaining({
+    fixture: "payload-project",
+    file: "src/payload-types.ts",
+    expect: "regressions",
+    exitCode: 0,
+  }));
+  expect(MUTATIONS).toContainEqual(expect.objectContaining({
+    fixture: "monorepo-project",
+    file: "packages/core/src/orphan.ts",
+    expect: "regressions",
+  }));
+});
+
+it("checks mutation stderr in both exit-code branches with an optional expectation", () => {
+  const failure = { fixture: "ts-project", file: "src/x.ts", expect: "custom failure" } as const;
+  const allowed = { fixture: "ts-project", file: "src/x.ts", exitCode: 0 } as const;
+  expect(mutationEvidenceOk(failure, "custom failure found")).toBe(true);
+  expect(mutationEvidenceOk(failure, "regressions found")).toBe(false);
+  expect(mutationEvidenceOk(allowed, "all clear")).toBe(true);
+  expect(mutationEvidenceOk(allowed, "regressions found")).toBe(false);
 });
 
 it("formats result rows and result tables", () => {

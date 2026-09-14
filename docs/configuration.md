@@ -53,7 +53,7 @@ Without an explicit `languages` list, code-quality combines detected languages w
 | Python | `pyproject.toml` or `setup.py` | Existing `src/` |
 | Web | `.twig`, `.html`, `.css`, `.scss`, or `.less` below `templates/` or `assets/` | Existing `templates/` and `assets/` directories |
 
-When a manifest detects a language but its default roots contain no source files, configuration loading discovers eligible source directories at depth 1 on every command. It ignores hidden, test, build, dependency, generated, and other conventional non-source directories; `init` records the discovered directories in the generated `paths.<language>`.
+When a manifest detects a language, conventional roots with sources are kept, then workspace roots from manifests are added. TypeScript workspace roots come from `pnpm-workspace.yaml` packages, `package.json` workspaces, and depth-1 directories with their own `package.json`; PHP roots come from `composer.json` autoload `psr-4`, `psr-0`, and `classmap` directories; Python roots come from `[tool.uv.workspace]` members minus `exclude` and `[tool.setuptools.packages.find]` `where`. Declared TypeScript members must contain `package.json`, and declared Python members must contain `pyproject.toml`. Member patterns support literal path segments, `*`, `**`, at most one `*` inside a segment, and `!` negations. The member walk reaches depth three; each manifest pattern is capped at 200 characters and only the first 200 include and first 200 exclude patterns are considered. Leading `./` prefixes, repeated slashes, and `.` path segments are normalized. A member maps to `<member>/src` when it exists. Only directories with source files count. When no conventional root has sources, workspace roots and depth-1 discovered roots are unioned, and a discovered directory containing a workspace root is dropped. A `Notice:` lists added roots, and `init` writes them into the generated `paths.<language>`. A depth-1 directory with its own `package.json`, such as `website/`, becomes a TypeScript root. Depth-1 discovery remains the fallback when nothing else resolves; it ignores hidden, test, build, dependency, generated, and other conventional non-source directories. Drupal projects keep the curated custom module, theme, and profile PHP roots instead of adding Composer autoload roots.
 
 If discovery finds no roots, configuration loading omits the language and prints a `Notice:` explaining how to add `paths.<language>`. An explicitly listed language or explicit path still fails when it contains no source files.
 
@@ -75,6 +75,7 @@ Dependency, virtual-environment, distribution, and artifact directories named `n
 When `composer.json` requires `drupal/core`, `drupal/core-recommended`, or another `drupal/core-*` package, code-quality detects custom code automatically:
 
 - PHP uses existing custom modules, themes, and profiles under `web/` or `docroot/`.
+- PHP checks also scan `.module`, `.theme`, `.install`, `.inc`, `.profile`, and `.engine` files with structural anchors.
 - Web uses custom theme directories.
 - TS/JS adds custom theme directories that contain JavaScript.
 - Ordinary source-root discovery remains the fallback when no custom directory exists.
@@ -91,11 +92,26 @@ exclude:
   - "web/modules/custom/site/generated/**"
 ```
 
+## Payload/Next profile
+
+When `next.config.{js,mjs,cjs,ts,mts}` exists at the repository root, or `payload.config.{ts,js,mjs,mts}` exists at the root or under `src/`, code-quality activates the Payload/Next profile for resolved TypeScript sources. For every resolved TypeScript root `<ts-root>`, it excludes:
+
+- `<ts-root>/**/payload-types.ts`
+- `<ts-root>/**/importMap.js`
+- `<ts-root>/**/app/[(]payload[)]/**`
+- `<ts-root>/**/migrations/**`
+- `<ts-root>/**/migrations-*/**`
+- `<ts-root>/**/seed/**`
+- `.next/**`
+- `next-env.d.ts`
+
+A `Notice:` identifies the active Payload/Next defaults. `.next/**` and `next-env.d.ts` remain repository-root exclusions; the generated-code patterns are scoped to TypeScript roots. Dependency-cruiser does not apply exclude globs.
+
 ## What `init` writes
 
 Run `npx @runroom/code-quality init` once the first source and manifest files exist. It writes or updates:
 
-- `.code-quality.yml` with detected languages and paths, unless the file already exists;
+- `.code-quality.yml` with detected languages and resolved paths, including workspace roots, unless the file already exists;
 - missing `quality/<adapter-id>-baseline.json` files while keeping existing snapshots and reporting each as `● Kept existing quality/<adapter-id>-baseline.json`;
 - `.github/workflows/quality.yml`, unless it already exists;
 - a Makefile or an appended target block when safe; and

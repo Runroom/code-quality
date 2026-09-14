@@ -3,7 +3,10 @@ import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { cognitiveRuleset } from "../../../src/checks/php/phpcs-cognitive.ts";
+import {
+  cognitiveRuleset,
+  phpcsCognitiveAdapter,
+} from "../../../src/checks/php/phpcs-cognitive.ts";
 import {
   complexityRuleset,
   phpcsComplexityAdapter,
@@ -46,13 +49,26 @@ function complexityReport(): unknown {
 
 describe("phpcs config and synthetic parser", () => {
   it("generates all PHP complexity thresholds and cognitive max 15", () => {
-    const ruleset = complexityRuleset();
+    const ruleset = complexityRuleset({ isDrupal: false });
     expect(ruleset).toContain(`name="complexity" value="${POLICY.complexity}"`);
     expect(ruleset).toContain(`name="nestingLevel" value="${POLICY.maxDepth}"`);
     expect(ruleset).toContain(`name="maxLinesLength" value="${POLICY.maxLinesPerFunction}"`);
     expect(ruleset).toContain(`name="maxParameters" value="${POLICY.maxParams}"`);
     expect(ruleset).toContain("/opt/php/phpcs-standard");
-    expect(cognitiveRuleset()).toContain(`name="maxComplexity" value="${POLICY.cognitive}"`);
+    expect(ruleset).toContain('name="extensions" value="php"');
+    expect(cognitiveRuleset({ isDrupal: false })).toContain(`name="maxComplexity" value="${POLICY.cognitive}"`);
+    expect(cognitiveRuleset({ isDrupal: false })).toContain('name="extensions" value="php"');
+
+    const drupalRuleset = complexityRuleset({ isDrupal: true });
+    const drupalCognitiveRuleset = cognitiveRuleset({ isDrupal: true });
+    const extensions = 'name="extensions" value="php,module,theme,install,inc,profile,engine"';
+    expect(drupalRuleset).toContain(extensions);
+    expect(drupalCognitiveRuleset).toContain(extensions);
+
+    const context = checkContext("/r", "php", { "src/a.php": source });
+    context.config.isDrupal = true;
+    expect(phpcsComplexityAdapter.configFiles(context)[0]!.content).toContain(extensions);
+    expect(phpcsCognitiveAdapter.configFiles(context)[0]!.content).toContain(extensions);
   });
 
   it("rejects an unknown source", async () => {

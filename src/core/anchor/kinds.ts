@@ -118,6 +118,12 @@ const EXTENSIONS: Readonly<Record<string, Grammar>> = {
   ".cjs": "javascript",
   ".jsx": "javascript",
   ".php": "php",
+  ".module": "php",
+  ".theme": "php",
+  ".install": "php",
+  ".inc": "php",
+  ".profile": "php",
+  ".engine": "php",
   ".py": "python",
 };
 

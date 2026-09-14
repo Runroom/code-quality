@@ -1,0 +1,1 @@
+{"name":"payload-fixture","private":true,"type":"module","dependencies":{"next":"file:stubs/next","payload":"file:stubs/payload"},"devDependencies":{"vitest":"file:stubs/vitest","@playwright/test":"file:stubs/playwright-test"}}

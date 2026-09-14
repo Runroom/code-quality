@@ -93,7 +93,7 @@ Each unused-code tool has its own adapter, version stamp, and baseline:
 
 Knip requires `node_modules/` only when `package.json` declares any dependency field (`dependencies`, `devDependencies`, `peerDependencies`, or `optionalDependencies`). Install with the repository's package manager before checking; the gate reports a missing install directly.
 
-Knip disables configuration-executing plugins, so dependencies referenced only by tool configuration can appear unused and be baselined. Entry heuristics include conventional `index`, `main`, and `cli` files, files below `bin` directories in each source root, repository-level tests and test patterns, and scripts referenced from `package.json`, such as `node scripts/build.ts`.
+Knip disables configuration-executing plugins, so dependencies referenced only by tool configuration can appear unused and be baselined. Entry heuristics include conventional `index`, `main`, and `cli` files, files below `bin` directories in each source root, repository-level tests and test patterns, and scripts referenced from `package.json`, such as `node scripts/build.ts`. Framework entry points detected from static config files (Next app/pages routes, middleware, instrumentation, payload.config, vite/vitest/playwright configs) are added as static entry patterns, and in monorepos the generated configuration declares one Knip workspace per resolved source root owner with workspaces that own no root ignored; plugins stay disabled.
 
 PHP checks require a usable `vendor/` directory containing application dependencies and PHPStan context. Run `composer install` before checking; the gate reports a missing install directly.
 

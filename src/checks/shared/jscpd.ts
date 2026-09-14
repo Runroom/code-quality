@@ -5,6 +5,8 @@ import { z } from "zod";
 
 import { findingsSchema, readSnapshot } from "../../core/snapshot.ts";
 import { baselineFile } from "../../core/types.ts";
+import { phpToolExtensions } from "../../core/config/sources.ts";
+import type { ResolvedConfig } from "../../core/config/types.ts";
 import { excludeGlobs, FindingsBuilder, POLICY, relativize } from "./kit.ts";
 import type { CheckAdapter, CheckContext, GeneratedFile, ParsedFindings } from "./kit.ts";
 import type { DuplicateDetail, Findings, Language } from "../../core/types.ts";
@@ -45,12 +47,21 @@ function outputPaths(ctx: CheckContext): [string, string] {
   ];
 }
 
+export function jscpdPhpExtensions(resolved: Pick<ResolvedConfig, "isDrupal">): string[] | undefined {
+  if (!resolved.isDrupal) return undefined;
+  return phpToolExtensions(true);
+}
+
 function config(ctx: CheckContext, language: Language): string {
+  const phpExtensions = jscpdPhpExtensions(ctx.config);
   return JSON.stringify({
     mode: POLICY.duplication.mode,
     minTokens: POLICY.duplication.minTokens,
     minLines: POLICY.duplication.minLines,
     format: FORMATS[language],
+    ...(language === "php" && phpExtensions !== undefined
+      ? { formatsExts: { php: phpExtensions } }
+      : {}),
     ignore: excludeGlobs(ctx.config, true),
     reporters: ["json"],
     output: join(ctx.artifactDir, "jscpd"),
