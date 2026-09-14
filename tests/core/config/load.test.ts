@@ -305,6 +305,24 @@ describe("resolved consumer config", () => {
       expect(config.exclude).toEqual(["**/generated/**", "custom/**"]);
     });
   });
+
+  it("includes report only when configured and excludes it from the config hash", () => {
+    const files = { "package.json": "{}", "src/index.ts": "" };
+    let hashWithout = "";
+    withRoot(files, ["src"], (root) => {
+      const config = loadConfig(root);
+      expect(config.report).toBeUndefined();
+      hashWithout = config.configHash;
+    });
+    withRoot({
+      ...files,
+      ".code-quality.yml": "report:\n  coverage: coverage/coverage-final.json\n",
+    }, ["src"], (root) => {
+      const config = loadConfig(root);
+      expect(config.report).toEqual({ coverage: "coverage/coverage-final.json" });
+      expect(config.configHash).toBe(hashWithout);
+    });
+  });
 });
 
 describe("loadConfig source validation", () => {

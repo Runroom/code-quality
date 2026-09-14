@@ -8,4 +8,5 @@ export interface ReportDeps {
   stdout: (value: string) => void;
   stderr: (value: string) => void;
   style: Style;
+  coverage?: string | undefined;
 }

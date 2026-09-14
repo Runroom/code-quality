@@ -7,6 +7,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   readdirSync,
   rmSync,
   writeFileSync,
@@ -75,6 +76,7 @@ export interface ResultRow {
   expectedExitCode: number;
   stderr: string;
   expectedStderr?: string;
+  evidenceOk?: boolean;
 }
 
 interface DockerResult {
@@ -242,7 +244,8 @@ function resultRow(
 
 function rowIsOk(row: ResultRow): boolean {
   return row.exitCode === row.expectedExitCode &&
-    (row.expectedStderr === undefined || row.stderr.includes(row.expectedStderr));
+    (row.expectedStderr === undefined || row.stderr.includes(row.expectedStderr)) &&
+    row.evidenceOk !== false;
 }
 
 export function formatResultRow(row: ResultRow): string {
@@ -300,6 +303,29 @@ function fixtureReportRow(repositoryRoot: string, image: string, fixture: string
   }
 }
 
+function fixtureCoverageReportRow(repositoryRoot: string, image: string): ResultRow {
+  const root = temporaryFixture(repositoryRoot, "ts-project");
+  try {
+    const coverageDirectory = join(root, "coverage");
+    mkdirSync(coverageDirectory, { recursive: true });
+    copyFileSync(
+      join(repositoryRoot, "tests/fixtures/istanbul/ts-project.coverage-final.json"),
+      join(coverageDirectory, "coverage-final.json"),
+    );
+    const result = runDocker(image, ["report", "--coverage", "coverage/coverage-final.json"], root);
+    const report = JSON.parse(readFileSync(
+      join(root, "artifacts/quality/fallow-health/fallow-health.json"),
+      "utf8",
+    )) as { summary?: { istanbul_files_matched?: number } };
+    return {
+      ...resultRow("ts-project report --coverage", result, 0),
+      evidenceOk: (report.summary?.istanbul_files_matched ?? 0) >= 1,
+    };
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
 function mutationRow(repositoryRoot: string, image: string, mutation: Mutation): ResultRow {
   const root = temporaryFixture(repositoryRoot, mutation.fixture);
   try {
@@ -316,6 +342,7 @@ function integrationRows(repositoryRoot: string, image: string): ResultRow[] {
   installMissingFixtureDependencies(repositoryRoot, image);
   for (const fixture of FIXTURES) rows.push(fixtureCheckRow(repositoryRoot, image, fixture));
   for (const fixture of REPORT_FIXTURES) rows.push(fixtureReportRow(repositoryRoot, image, fixture));
+  rows.push(fixtureCoverageReportRow(repositoryRoot, image));
   for (const mutation of MUTATIONS) rows.push(mutationRow(repositoryRoot, image, mutation));
   return rows;
 }

@@ -120,19 +120,24 @@ The caller can provide the supported inputs. For example, this selects checks, i
 | `checks` | string | empty | Space-separated lowercase check IDs; empty runs all detected checks |
 | `setup` | string | empty | Consumer shell command run before checking |
 | `working-directory` | string | `.` | Consumer working directory inside `/work` |
+| `report` | boolean | `false` | Run the advisory report after the check and upload `artifacts/quality` |
+| `coverage-artifact` | string | empty | Artifact containing `coverage/coverage-final.json` for Fallow health |
 
 ```yaml
 jobs:
   quality:
+    needs: test
     uses: Runroom/code-quality/.github/workflows/quality.yml@v1
     with:
       checks: "complexity duplication unused"
       setup: composer install --no-interaction
       image-tag: v1
       working-directory: "."
+      report: true
+      coverage-artifact: test-coverage
 ```
 
-The reusable job checks out the full history, runs the optional setup command, and invokes plain `code-quality check`. Failing findings produce GitHub annotations, and the job summary is written to `GITHUB_STEP_SUMMARY`. It never passes `--update` or `--initialize`, so CI never writes baselines. Knip and the PHP unused checks need installed dependencies before they run: use `setup: pnpm install --frozen-lockfile` for pnpm, `setup: npm ci` for npm, or `setup: composer install` for Composer. The first two create `node_modules/` for Knip; Composer creates `vendor/` for the PHP unused checks.
+The reusable job checks out the full history, runs the optional setup command, and invokes plain `code-quality check`. With `report` enabled, it also downloads the coverage artifact, runs `code-quality report`, and uploads `artifacts/quality` as the `quality-reports` artifact. Failing findings produce GitHub annotations, and the job summary is written to `GITHUB_STEP_SUMMARY`. It never passes `--update` or `--initialize`, so CI never writes baselines. Knip and the PHP unused checks need installed dependencies before they run: use `setup: pnpm install --frozen-lockfile` for pnpm, `setup: npm ci` for npm, or `setup: composer install` for Composer. The first two create `node_modules/` for Knip; Composer creates `vendor/` for the PHP unused checks.
 
 ## Check selection
 
@@ -165,7 +170,7 @@ Initialize a check once with `check --initialize` after reviewing its current fi
 A realistic output block is:
 
 ```text
- code-quality 1.1.7 · ts, python · 5 checks
+ code-quality 1.2.0 · ts, python · 5 checks
 
  ✔ ts-complexity      oxlint 1.82.0  280 findings
  ✖ ts-cognitive       fallow 3.23.0  18 findings · 2 new
@@ -187,6 +192,8 @@ A realistic output block is:
 
 `check`, `baseline`, and `init` accept `--artifacts <dir>` to retain raw tool output plus `stdout.log` and `stderr.log` per adapter. Without it, adapter output stays in a temporary directory and no adapter artifacts or logs are written by default. `report --output <dir>` selects the advisory report directory and defaults to `artifacts/quality/`.
 
+`report --coverage <path>` gives Fallow an Istanbul `coverage-final.json` map, or a directory containing that file, so its advisory CRAP values use measured coverage. The repository-relative `report.coverage` configuration key does the same and requires code-quality 1.2.0 or newer; an explicit flag wins. Coverage paths that match no repository file produce a notice and CRAP stays estimated; missing or malformed coverage files still fail. The coverage file's directory is excluded from Fallow scans unless it overlaps a configured source path, in which case only the coverage file is excluded.
+
 In GitHub Actions, each regression also emits a `::error file=…` annotation. The current Markdown summary is appended to `GITHUB_STEP_SUMMARY` when that environment variable is available.
 
 ## Configuration reference
@@ -205,6 +212,7 @@ In GitHub Actions, each regression also emits a `::error file=…` annotation. T
 | `architecture.ts.rulesFile` | repository-relative file path | `.dependency-cruiser.cjs` when it exists; otherwise skipped |
 | `architecture.php.rulesFile` | repository-relative file path | `deptrac.yaml` when it exists; otherwise skipped |
 | `architecture.python.rulesFile` | repository-relative file path | `.importlinter` when it exists; otherwise skipped |
+| `report.coverage` | repository-relative Istanbul map or directory | Unset; requires code-quality 1.2.0 or newer |
 
 An explicitly configured architecture file that is missing is an error. Consumer exclusions apply to applicable checks, while tests remain excluded from duplication regardless of the consumer paths.
 
@@ -231,6 +239,17 @@ exclude:
 ```
 
 The Drupal profile discovers custom modules, themes, and profiles and prints a `Notice:` describing the applied defaults. Normal applicable complexity, cognitive-complexity, duplication, and architecture checks run for the detected custom-code languages; PHP `composer-unused` and `composer-require-checker` run with installed Composer dependencies, while PHPStan dead-code analysis is skipped because consumer PHPStan extensions are incompatible with the image.
+
+### Coverage for CRAP
+
+When tests and the report run in the same job, configure Vitest's `json` coverage reporter (with either the V8 or Istanbul provider), then run:
+
+```sh
+vitest run --coverage
+npx @runroom/code-quality report --coverage coverage/coverage-final.json
+```
+
+With the reusable workflow, have the tests job upload the `coverage/` directory as an artifact named `test-coverage`. The quality job must declare `needs: test`, then set `report: true` and `coverage-artifact: test-coverage` as shown above. Raw V8 output is not supported; the input must be the Istanbul map written by the Vitest or Jest JSON reporter.
 
 ## Version pinning
 

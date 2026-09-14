@@ -55,7 +55,7 @@ let errors: string[] = [];
 
 function expectRegressionOutput(): void {
   expect(outputs).toEqual([
-    " code-quality 1.1.7 · ts · 3 checks\n",
+    " code-quality 1.2.0 · ts · 3 checks\n",
     "\n",
     " ✔ ts-alpha  node 0.0.0  0 findings\n",
     " ✖ ts-beta   node 0.0.0  1 finding · 1 new\n",
@@ -74,6 +74,40 @@ afterEach(() => {
   errors = [];
   for (const root of roots) rmSync(root, { recursive: true, force: true });
   roots.length = 0;
+});
+
+describe("report coverage CLI", () => {
+  it.each([
+    ["absolute", "/abs"],
+    ["parent", "../coverage.json"],
+    ["option-like", "-x"],
+    ["colon", "a:b"],
+  ])("rejects %s report coverage before spawning tools", async (_label, coverage) => {
+    const command = deps(consumer());
+    let spawns = 0;
+    command.run.spawn = () => {
+      spawns += 1;
+      throw new Error("unexpected spawn");
+    };
+    expect(await runCli(["node", "code-quality", "report", `--coverage=${coverage}`], command)).toBe(1);
+    expect(errors.join(" ")).toContain(`Invalid --coverage path "${coverage}"`);
+    expect(spawns).toBe(0);
+  });
+
+  it("rejects missing report coverage before spawning tools", async () => {
+    const command = deps(consumer());
+    let spawns = 0;
+    command.run.spawn = () => {
+      spawns += 1;
+      throw new Error("unexpected spawn");
+    };
+    expect(await runCli([
+      "node", "code-quality", "report", "--coverage", "coverage/missing.json",
+    ], command)).toBe(1);
+    expect(errors.join(" ")).toContain("Coverage file");
+    expect(errors.join(" ")).toContain("does not exist");
+    expect(spawns).toBe(0);
+  });
 });
 
 describe("CLI program", () => {

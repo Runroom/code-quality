@@ -165,6 +165,8 @@ Some supported tree-sitter grammars reject otherwise valid newer syntax. When th
 
 `report` is advisory: it retains full Fallow health and semantic-duplication output, complexipy JSON, and jscpd HTML for investigation. Advisory similarity and health reports do not alter the exact jscpd or complexity baselines and do not turn a report-only measurement into an accepted regression.
 
+Coverage-backed CRAP remains advisory only and never changes the blocking quality gate.
+
 ### Output
 
 `check` prints one line per failing finding as `file:line:col  rule  message  [new]`, `[worsened P → V]`, or `[stale: was P]`; duplication uses `a:start-end ↔ b:start-end`. `check --all` also prints every current finding with `[baselined]`.

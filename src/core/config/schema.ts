@@ -14,7 +14,7 @@ export const LOGICAL_IDS = [
 ] as const;
 export type LogicalCheckId = (typeof LOGICAL_IDS)[number];
 
-function isRelativePath(path: string): boolean {
+export function isRelativePath(path: string): boolean {
   const normalized = posix.normalize(path);
   const hasParentSegment = path.split("/").includes("..");
   return !path.startsWith("-") && !path.includes(":") && !path.startsWith("/") &&
@@ -50,6 +50,7 @@ export const consumerConfigSchema = z.strictObject({
   exclude: z.array(relativePath).optional(),
   checks: z.strictObject({ disabled: z.array(disabledCheckSchema) }).optional(),
   architecture: architectureSchema.optional(),
+  report: z.strictObject({ coverage: relativePath.optional() }).optional(),
 });
 
 export type ConsumerConfig = z.infer<typeof consumerConfigSchema>;

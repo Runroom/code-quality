@@ -28,6 +28,7 @@ interface GateFlags {
 
 interface ReportFlags {
   output?: string;
+  coverage?: string;
 }
 
 const PROGRAM_STATES = new WeakMap<Command, ProgramState>();
@@ -103,6 +104,7 @@ function registerCommands(program: Command, deps: CliDeps, state: ProgramState):
   program.command("report")
     .description("Generate advisory reports")
     .option("--output <dir>", "report output directory")
+    .option("--coverage <path>", "Istanbul coverage map (coverage-final.json) or its directory")
     .action(async (flags: ReportFlags) => {
       state.exitCode = await reportCommand(deps, flags);
     });
