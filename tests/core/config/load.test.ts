@@ -11,6 +11,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { loadConfig } from "../../../src/core/config/load.ts";
+import { isExcluded, payloadNextExclusions } from "../../../src/core/config/exclusions.ts";
 
 const fixtureRoot = join(process.cwd(), "tests/fixtures/config");
 
@@ -205,6 +206,154 @@ describe("loadConfig auto-detection notices", () => {
   });
 });
 
+describe("loadConfig workspace roots", () => {
+  it("adds Composer autoload roots to conventional PHP roots", () => {
+    const packageRoots = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"]
+      .map((name) => `packages/${name}/src`);
+    const psr4 = Object.fromEntries(
+      packageRoots.map((directory) => [`Package${directory.slice(9, 10).toUpperCase()}\\\\`, `${directory}/`]),
+    );
+    const packageFiles = Object.fromEntries(
+      Object.values(psr4).map((directory) => [`${directory}Package.php`, "<?php\n"]),
+    );
+    withRoot({
+      "composer.json": JSON.stringify({
+        autoload: { "psr-4": psr4 },
+        "autoload-dev": { "psr-4": { "App\\\\": "src/" } },
+      }),
+      "src/App.php": "<?php\n",
+      ...packageFiles,
+    }, [], (root) => {
+      const config = loadConfig(root);
+      expect(config.paths.php).toEqual(["src", ...packageRoots]);
+      expect(config.notices).toContain(
+        `php: added workspace roots ${packageRoots.join(", ")}`,
+      );
+    });
+  });
+
+  it("resolves pnpm members instead of their container directories", () => {
+    withRoot({
+      "package.json": "{}",
+      "pnpm-workspace.yaml": "packages: ['packages/*', 'apps/*']\n",
+      "apps/web/src/index.ts": "",
+      "apps/web/package.json": "{}",
+      "apps/web/tests/index.ts": "",
+      "packages/core/src/index.ts": "",
+      "packages/core/package.json": "{}",
+      "packages/core/tests/index.ts": "",
+    }, [], (root) => {
+      const config = loadConfig(root);
+      expect(config.paths.ts).toEqual(["apps/web/src", "packages/core/src"]);
+      expect(config.notices).toContain(
+        "ts: added workspace roots apps/web/src, packages/core/src",
+      );
+    });
+  });
+});
+
+describe("loadConfig workspace discovery union", () => {
+  it("unions workspace roots with discovered roots when conventional roots are empty", () => {
+    withRoot({
+      "package.json": "{}",
+      "pnpm-workspace.yaml": "packages: ['packages/*']\n",
+      "packages/core/package.json": "{}",
+      "packages/core/src/index.ts": "",
+      "scripts/tool.ts": "",
+    }, [], (root) => {
+      const config = loadConfig(root);
+      expect(config.paths.ts).toEqual(["packages/core/src", "scripts"]);
+      expect(config.notices).toContain("ts: added workspace roots packages/core/src");
+    });
+  });
+});
+
+describe("loadConfig conventional and workspace roots", () => {
+  it("combines a conventional root with a depth-1 package root", () => {
+    withRoot({
+      "package.json": "{}",
+      "src/index.ts": "",
+      "server/package.json": "{}",
+      "server/index.ts": "",
+    }, [], (root) => {
+      const config = loadConfig(root);
+      expect(config.paths.ts).toEqual(["src", "server"]);
+      expect(config.notices).toContain("ts: added workspace roots server");
+    });
+  });
+});
+
+describe("loadConfig workspace root overrides", () => {
+  it("does not augment explicitly configured paths", () => {
+    withRoot({
+      ".code-quality.yml": "paths:\n  ts: [custom]\n",
+      "package.json": JSON.stringify({ workspaces: ["packages/*"] }),
+      "custom/index.ts": "",
+      "packages/core/src/index.ts": "",
+    }, [], (root) => expect(loadConfig(root).paths.ts).toEqual(["custom"]));
+  });
+
+  it("resolves an explicit language from workspace roots without src", () => {
+    withRoot({
+      ".code-quality.yml": "languages: [ts]\n",
+      "package.json": JSON.stringify({ workspaces: ["packages/*"] }),
+      "packages/core/package.json": "{}",
+      "packages/core/src/index.ts": "",
+    }, [], (root) => expect(loadConfig(root).paths.ts).toEqual(["packages/core/src"]));
+  });
+});
+
+describe("Drupal extension source detection", () => {
+  it("detects Drupal module files as PHP sources", () => {
+    withRoot(
+      {
+        "composer.json": JSON.stringify({ require: { "drupal/core-recommended": "^11" } }),
+        "web/modules/custom/demo/demo.module": "<?php\nfunction demo_help() { return 1; }\n",
+        ".code-quality.yml": "paths:\n  php: [web/modules/custom/demo]\n",
+      },
+      [],
+      (root) => {
+        const config = loadConfig(root);
+        expect(config.paths.php).toContain("web/modules/custom/demo");
+        expect(config.languages).toContain("php");
+      },
+    );
+  });
+
+  it("does not treat Drupal module extensions as PHP outside Drupal", () => {
+    withRoot(
+      {
+        "composer.json": JSON.stringify({ require: { "vendor/package": "^1" } }),
+        "web/modules/custom/demo/demo.module": "<?php\nfunction demo_help() { return 1; }\n",
+      },
+      [],
+      (root) => {
+        const config = loadConfig(root);
+        expect(config.isDrupal).toBe(false);
+        expect(config.languages).not.toContain("php");
+        expect(config.paths.php).toBeUndefined();
+      },
+    );
+  });
+
+  it("allows explicit Drupal module paths but rejects them outside Drupal", () => {
+    const files = {
+      ".code-quality.yml": "paths:\n  php: [custom]\n",
+      "custom/demo.module": "<?php\nfunction demo_help() { return 1; }\n",
+    };
+    withRoot(
+      { ...files, "composer.json": JSON.stringify({ require: { "drupal/core": "^11" } }) },
+      [],
+      (root) => expect(loadConfig(root).paths.php).toEqual(["custom"]),
+    );
+    withRoot(
+      { ...files, "composer.json": JSON.stringify({ require: { "vendor/package": "^1" } }) },
+      [],
+      (root) => expectLoadFailure(root, "php: no php source files found under custom (extensions: .php)"),
+    );
+  });
+});
+
 describe("Drupal and vendored-source profiles", () => {
   it("uses Drupal custom-code roots and reports the profile", () => {
     withRoot(
@@ -246,6 +395,99 @@ describe("Drupal and vendored-source profiles", () => {
       [],
       (root) => expect(loadConfig(root).paths.php).toEqual(["domain"]),
     );
+  });
+
+  it("does not augment curated Drupal PHP roots from Composer autoload", () => {
+    withRoot({
+      "composer.json": JSON.stringify({
+        require: { "drupal/core": "^11" },
+        autoload: { "psr-4": { "Domain\\\\": "domain/" } },
+      }),
+      "web/modules/custom/demo/demo.module": "<?php\n",
+      "domain/Entity.php": "<?php\n",
+    }, [], (root) => {
+      expect(loadConfig(root).paths.php).toEqual(["web/modules/custom"]);
+    });
+  });
+});
+
+describe("Payload/Next profile", () => {
+  it("adds generated exclusions and a notice and changes the config hash", () => {
+    const sourceFiles = {
+      "package.json": "{}",
+      "src/app/page.tsx": "export default function Page() { return null; }\n",
+      ".code-quality.yml": "exclude:\n  - '**/consumer-generated/**'\n",
+    };
+    let ordinaryHash = "";
+    withRoot(sourceFiles, [], (root) => {
+      ordinaryHash = loadConfig(root).configHash;
+    });
+    withRoot({ ...sourceFiles, "next.config.mjs": "export default {};\n" }, [], (root) => {
+      const config = loadConfig(root);
+      expect(config.exclude).toEqual([
+        "**/consumer-generated/**",
+        ...payloadNextExclusions(["src"]),
+      ]);
+      expect(config.notices).toContain(
+        "Payload/Next profile: excluding generated Payload types, import map, admin route group, "
+          + "migrations, seed data, and Next build output",
+      );
+      expect(config.configHash).not.toBe(ordinaryHash);
+    });
+  });
+});
+
+describe("Payload/Next scoped exclusions", () => {
+  it("records Payload exclusions only under resolved TypeScript roots", () => {
+    withRoot({
+      ".code-quality.yml": "paths:\n  ts: [assets]\n",
+      "package.json": "{}",
+      "next.config.mjs": "export default {};\n",
+      "assets/index.ts": "",
+      "assets/migrations/x.ts": "",
+      "src/migrations/Version1.php": "<?php\n",
+    }, [], (root) => {
+      const config = loadConfig(root);
+      expect(config.exclude).toContain("assets/**/migrations/**");
+      expect(config.exclude).not.toContain("**/migrations/**");
+      expect(config.exclude.join("\n")).not.toContain("src/migrations");
+      expect(isExcluded("src/migrations/Version1.php", config.exclude)).toBe(false);
+      expect(isExcluded("assets/migrations/x.ts", config.exclude)).toBe(true);
+    });
+  });
+
+  it("does not resolve TypeScript when Payload-generated files are the only sources", () => {
+    withRoot({
+      "package.json": "{}",
+      "payload.config.ts": "export default {};\n",
+      "src/migrations/x.ts": "",
+      "src/payload-types.ts": "",
+    }, [], (root) => {
+      const config = loadConfig(root);
+      expect(config.languages).toEqual([]);
+      expect(config.paths.ts).toBeUndefined();
+      expect(config.exclude).toEqual([]);
+      expect(config.notices).toEqual([
+        "ts: package.json detected but no ts source files under src; "
+          + "add paths.ts to .code-quality.yml to enable TS checks",
+      ]);
+    });
+  });
+
+  it("does not apply the profile when TypeScript does not resolve", () => {
+    withRoot({
+      "composer.json": "{}",
+      "payload.config.ts": "export default {};\n",
+      "src/index.php": "<?php\n",
+    }, [], (root) => {
+      const config = loadConfig(root);
+      expect(config.languages).toEqual(["php"]);
+      expect(config.exclude).toEqual([]);
+      expect(config.notices).not.toContain(
+        "Payload/Next profile: excluding generated Payload types, import map, admin route group, "
+          + "migrations, seed data, and Next build output",
+      );
+    });
   });
 });
 

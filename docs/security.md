@@ -6,7 +6,7 @@ code-quality analyzes untrusted repository content with tools that may execute c
 
 - dependency-cruiser configuration and import-linter imports can execute consumer code inside the container.
 - A reusable-workflow `setup` command, such as `composer install`, executes consumer code inside the job container.
-- Knip runs with configuration-executing plugins disabled, but other supported tools can still load repository configuration where their operation requires it.
+- Knip runs with configuration-executing plugins disabled; its plugin toggles are generated from the complete plugin registry of the pinned Knip version and verified by a test. Framework entry points are matched as static file patterns and parsed, never executed, but other supported tools can still load repository configuration where their operation requires it.
 - Local launcher containers bind-mount the current repository at `/work` read-write.
 
 ## Container users

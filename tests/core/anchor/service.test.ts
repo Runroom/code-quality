@@ -84,6 +84,15 @@ describe("other grammar anchors", () => {
 describe("PHP anchors", () => {
   const source = fixture("sample.php");
 
+  it.each(["module", "theme", "install", "inc", "profile", "engine"])(
+    "anchors Drupal .%s files as PHP",
+    async (extension) => {
+    const module = "<?php\nfunction demo_help() {\n  return 1;\n}\n";
+    await expect(service.anchor(`demo.${extension}`, module, offsetOf(module, "demo_help"), false))
+      .resolves.toBe("/function:demo_help");
+    },
+  );
+
   it.each([
     ["if ($a)", 0, "/class:Foo/method:bar"],
     ["function ($v)", 0, "/class:Foo/method:baz/function[0]"],

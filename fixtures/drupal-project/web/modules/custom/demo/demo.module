@@ -1,0 +1,18 @@
+<?php
+
+declare(strict_types=1);
+
+function demo_help(string $route_name): string
+{
+    return $route_name === "help" ? "Demo help" : "";
+}
+
+function demo_simple(int $value): int
+{
+    return $value * 2;
+}
+
+function demo_status(): string
+{
+    return "ready";
+}

@@ -59,12 +59,34 @@ describe("jscpd adapter", () => {
         absolute: boolean;
         format: string[];
         ignore: string[];
+        formatsExts?: Record<string, string[]>;
       };
       expect(adapter.id).toBe(`${language}-duplication`);
       expect(config.format).toEqual(formats[language]);
       expect(config.ignore).toEqual(expect.arrayContaining([...TEST_EXCLUSIONS]));
       expect(config.absolute).toBe(true);
+      expect(config).not.toHaveProperty("formatsExts");
     }
+  });
+
+  it("maps Drupal PHP extensions for jscpd without changing other languages", () => {
+    const context = checkContext("/r", "php");
+    context.config.isDrupal = true;
+    const config = JSON.parse(jscpdAdapter("php").configFiles(context)[0]!.content) as {
+      format: string[];
+      formatsExts?: Record<string, string[]>;
+    };
+    expect(config.format).toEqual(["php"]);
+    expect(config.formatsExts?.php).toEqual([
+      "php", "module", "theme", "install", "inc", "profile", "engine",
+    ]);
+
+    const tsContext = checkContext("/r", "ts");
+    tsContext.config.isDrupal = true;
+    const tsConfig = JSON.parse(jscpdAdapter("ts").configFiles(tsContext)[0]!.content) as {
+      formatsExts?: Record<string, string[]>;
+    };
+    expect(tsConfig).not.toHaveProperty("formatsExts");
   });
 
   it("uses the temp baseline for commands, parsing, and captured artifacts", () => {

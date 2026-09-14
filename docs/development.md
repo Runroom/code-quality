@@ -17,7 +17,7 @@ pnpm capture <adapter-id> <fixture-directory>
 | `pnpm verify` | Runs type checking, linting, tests, and the bundle build. |
 | `pnpm build:launcher` | Builds the npm launcher package. |
 | `pnpm docker:build` | Builds the local analysis image. |
-| `pnpm integration` | Exercises the TS, PHP, Python, and web fixture repositories plus deliberate mutations against a locally built image. |
+| `pnpm integration` | Exercises the TS, PHP, Python, web, Drupal, Payload/Next, and monorepo fixture repositories plus deliberate mutations against a locally built image. |
 | `pnpm capture …` | Captures a selected adapter's native output from a pinned image tool for parser tests. |
 
 On its first run, integration installs fixture dependencies through the image. Native-output fixtures preserve the actual supported tool format and feed adapter parser tests.

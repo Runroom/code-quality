@@ -116,7 +116,7 @@ checks:
       reason: "Architecture rules are not defined yet"
 ```
 
-See [Configuration](docs/configuration.md) for detection, defaults, validation, Drupal behavior, and every key.
+See [Configuration](docs/configuration.md) for detection, defaults, validation, framework profiles (Drupal, Payload/Next), and every key.
 
 ## Documentation
 

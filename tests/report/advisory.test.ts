@@ -177,6 +177,18 @@ describe("fallow advisory invocations", () => {
     ]);
     expect(health.exitCodes).toEqual([0, 2]);
   });
+
+  it("adds PHP format extensions to jscpd HTML only for Drupal", () => {
+    const standard = ADVISORY_REPORTS.find((report) => report.id === "jscpd-html")!
+      .command(context(configRoot("php"), "php"));
+    expect(standard.args).not.toContain("--formats-exts");
+
+    const drupal = context(configRoot("php"), "php");
+    drupal.config.isDrupal = true;
+    const invocation = ADVISORY_REPORTS.find((report) => report.id === "jscpd-html")!.command(drupal);
+    expect(invocation.args).toContain("--formats-exts");
+    expect(invocation.args).toContain("php:php,module,theme,install,inc,profile,engine");
+  });
 });
 
 describe("fallow advisory validation", () => {

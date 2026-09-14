@@ -4,7 +4,12 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { defaultPaths, detectLanguages, selectArchitecture } from "../../../src/core/config/detect.ts";
+import {
+  defaultPaths,
+  detectLanguages,
+  isPayloadNextProject,
+  selectArchitecture,
+} from "../../../src/core/config/detect.ts";
 
 function withRoot(
   files: string[],
@@ -52,6 +57,30 @@ describe("detectLanguages", () => {
 
   it("does not detect web sources outside the default roots", () => {
     withRoot(["views/page.twig"], [], (root) => expect(detectLanguages(root)).toEqual([]));
+  });
+});
+
+describe("isPayloadNextProject", () => {
+  it.each([
+    "next.config.js",
+    "next.config.mjs",
+    "next.config.cjs",
+    "next.config.ts",
+    "next.config.mts",
+    "payload.config.ts",
+    "payload.config.js",
+    "payload.config.mjs",
+    "payload.config.mts",
+    "src/payload.config.ts",
+    "src/payload.config.js",
+    "src/payload.config.mjs",
+    "src/payload.config.mts",
+  ])("detects %s", (file) => {
+    withRoot([file], [], (root) => expect(isPayloadNextProject(root)).toBe(true));
+  });
+
+  it("returns false when no Payload or Next config exists", () => {
+    withRoot(["src/index.ts"], [], (root) => expect(isPayloadNextProject(root)).toBe(false));
   });
 });
 
