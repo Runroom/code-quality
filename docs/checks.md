@@ -195,6 +195,10 @@ In GitHub Actions, each regression emits an `::error file=…` annotation and th
 
 ## Coverage for CRAP
 
+CRAP (Change Risk Anti-Patterns) scores each function as `cc² × (1 − coverage)³ + cc`, where `cc` is cyclomatic complexity and `coverage` is the fraction of the function exercised by tests. A complex function with tests scores close to its complexity; a complex function without tests scores close to `cc² + cc`. Fallow computes it in the `fallow-health` advisory report with the default threshold of 30, and lists functions at or above it with a `crap` value, `coverage_source` (`estimated` without coverage data, otherwise measured) and `exceeded`. Functions below the threshold carry no `crap` field. Read a high CRAP as "complex and untested": the first candidates for a test or a refactor. CRAP never enters `check` or the baselines.
+
+Without coverage data Fallow assumes 0 % coverage, so CRAP degenerates to `cc² + cc` and every function with `cc ≥ 5` exceeds 30; those numbers only become useful once measured coverage is supplied as described below.
+
 `report --coverage <path>` supplies an Istanbul `coverage-final.json` map, or a directory containing that file, so Fallow uses measured coverage instead of the Fallow estimate. The repository-relative `report.coverage` key does the same in code-quality 1.2.0 and newer; the CLI flag wins.
 
 Vitest can use either the V8 or Istanbul provider, but must enable its `json` coverage reporter. Jest's JSON reporter also writes the supported Istanbul map; raw V8 output is unsupported.
