@@ -253,5 +253,10 @@ export function loadConfig(root: string): ResolvedConfig {
     architecture,
     notices: pathResolution.notices,
   };
-  return { root, ...resolved, configHash: configHash(resolved) };
+  return {
+    root,
+    ...resolved,
+    ...(consumer.report ? { report: consumer.report } : {}),
+    configHash: configHash(resolved),
+  };
 }

@@ -29,9 +29,9 @@ export const fallowErrorSchema = z.looseObject({
   message: z.string(),
 });
 
-export function fallowConfig(ctx: CheckContext): string {
+export function fallowConfig(ctx: CheckContext, extraIgnorePatterns: readonly string[] = []): string {
   return JSON.stringify({
-    ignorePatterns: [...excludeGlobs(ctx.config, true), "artifacts/**"],
+    ignorePatterns: [...excludeGlobs(ctx.config, true), "artifacts/**", ...extraIgnorePatterns],
     health: { maxCyclomatic: POLICY.complexity, maxCognitive: POLICY.cognitive },
     duplicates: POLICY.advisoryDuplication,
   }, null, 2);

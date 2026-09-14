@@ -361,10 +361,10 @@ describe("status rendering", () => {
 
   it("renders headers with pluralized check counts", () => {
     expect(renderHeader({
-      version: "1.1.7", languages: ["ts", "php"], checks: 3,
-    }, style)).toBe(" code-quality 1.1.7 · ts, php · 3 checks");
+      version: "1.2.0", languages: ["ts", "php"], checks: 3,
+    }, style)).toBe(" code-quality 1.2.0 · ts, php · 3 checks");
     expect(renderHeader({
-      version: "1.1.7", languages: ["ts"], checks: 1,
-    }, style)).toBe(" code-quality 1.1.7 · ts · 1 check");
+      version: "1.2.0", languages: ["ts"], checks: 1,
+    }, style)).toBe(" code-quality 1.2.0 · ts · 1 check");
   });
 });

@@ -14,5 +14,6 @@ export interface ResolvedConfig {
   disabled: Array<{ id: LogicalCheckId; reason: string }>;
   architecture: Partial<Record<Language, ArchitectureSelection>>;
   notices: string[];
+  report?: { coverage?: string | undefined };
   configHash: string;
 }

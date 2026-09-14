@@ -21,6 +21,7 @@ describe("consumerConfigSchema", () => {
         php: { rulesFile: "deptrac.yaml" },
         python: { rulesFile: ".importlinter" },
       },
+      report: { coverage: "coverage/coverage-final.json" },
     });
 
     expect(config.languages).toEqual(["ts", "php", "python", "web"]);
@@ -30,6 +31,15 @@ describe("consumerConfigSchema", () => {
     expect(() => consumerConfigSchema.parse({ thresholds: { complexity: 20 } })).toThrow(
       /Unrecognized key/,
     );
+  });
+
+  it("accepts report coverage and rejects invalid report shapes", () => {
+    expect(consumerConfigSchema.parse({ report: { coverage: "coverage" } }).report)
+      .toEqual({ coverage: "coverage" });
+    for (const report of ["coverage", { coverage: "/abs" }, { coverage: "../map.json" },
+      { coverage: "-x" }, { coverage: "a:b" }, { unknown: true }]) {
+      expect(() => consumerConfigSchema.parse({ report })).toThrow();
+    }
   });
 
   it.each([

@@ -5,6 +5,7 @@ import type { CliDeps } from "../deps.ts";
 
 interface ReportOptions {
   output?: string | undefined;
+  coverage?: string | undefined;
 }
 
 const DEFAULT_OUTPUT = "artifacts/quality";
@@ -13,5 +14,6 @@ export function reportCommand(deps: CliDeps, options: ReportOptions = {}): Promi
   return runReports({
     ...deps,
     output: resolve(deps.cwd, options.output ?? DEFAULT_OUTPUT),
+    coverage: options.coverage,
   });
 }
