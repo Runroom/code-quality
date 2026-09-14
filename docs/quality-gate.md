@@ -75,8 +75,8 @@ Each adapter writes `quality/<adapter-id>-baseline.json` with schema version 1, 
 - A reduction-only `baseline` update may write a current snapshot only when there is no regression.
 - `check --initialize` writes a missing snapshot, including an empty findings map, but never replaces an existing snapshot.
 - Tool-version and config-hash mismatches require a reviewed regeneration: remove the affected snapshot and initialize it again.
-- The reusable workflow runs plain `check` and never writes baselines; `GITHUB_ACTIONS=true` also protects the CLI from update, initialize, baseline, and init writes.
-- The reusable workflow accepts only lowercase, space-separated check IDs and fixes its image registry and repository to `ghcr.io/runroom/code-quality`; only `image-tag` is caller-controlled.
+- The reusable workflow runs plain `check` and never writes baselines; `GITHUB_ACTIONS=true` also protects the CLI from update, initialize, baseline, and init writes. With the opt-in `report` input it also runs `code-quality report` after the check (its findings are advisory and never enter the gate, though a failing `report` step still fails the job) and uploads `artifacts/quality` as the `quality-reports` artifact; the optional `coverage-artifact` input downloads a coverage artifact for the Fallow health report.
+- The reusable workflow accepts only lowercase, space-separated check IDs and fixes its image registry and repository to `ghcr.io/runroom/code-quality`; the caller controls only `image-tag`, `checks`, `setup`, `working-directory`, `report`, and `coverage-artifact`, and the coverage artifact name is validated before use.
 - Tool subprocesses inherit only approved environment variables plus constant and invocation-specific tool settings.
 
 The comparison is per key. A reduction in one finding cannot fund an increase in another finding. Native parser errors, unknown records, incomplete reports, invalid paths, and duplicate normalized keys fail closed.
@@ -183,4 +183,4 @@ A tool version bump is a policy change and follows these five steps:
 4. Build and release the new image tags.
 5. Have consumers explicitly regenerate affected snapshots after reviewing the changes; ordinary `--update` is not a tool-version migration mechanism.
 
-The v1 workflow and image are consumed through `@v1` and `v1`. A breaking CLI, snapshot, parser, or policy contract starts a new major line.
+The v1 workflow and image are consumed through `@v1` and `v1`, and the npm launcher `@runroom/code-quality` through `@1`; launcher X.Y.Z runs image vX.Y.Z unless `CODE_QUALITY_IMAGE` overrides it. A breaking CLI, snapshot, parser, or policy contract starts a new major line.
