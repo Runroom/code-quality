@@ -23,14 +23,14 @@ export const DISCOVERY_EXCLUDED_ROOTS = new Set([
   "tmp",
 ]);
 
-export const LANGUAGE_EXTENSIONS: Readonly<Record<Language, readonly string[]>> = {
+const LANGUAGE_EXTENSIONS: Readonly<Record<Language, readonly string[]>> = {
   ts: [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"],
   php: [".php"],
   python: [".py"],
   web: [".twig", ".html", ".css", ".scss", ".less"],
 };
 
-export const DRUPAL_PHP_EXTENSIONS = [".module", ".theme", ".install", ".inc", ".profile", ".engine"] as const;
+const DRUPAL_PHP_EXTENSIONS = [".module", ".theme", ".install", ".inc", ".profile", ".engine"] as const;
 
 export interface SourceSelection {
   excludes: readonly string[];
