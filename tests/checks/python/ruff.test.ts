@@ -59,6 +59,16 @@ describe("ruff config and synthetic parser", () => {
       report("C901", "busy is too complex (21 > 20)"),
     )).rejects.toThrow("Unparsable metric message");
   });
+
+  it("uses a quiet line fallback for a module-level diagnostic without a suffix", async () => {
+    const context = checkContext("/r", "python", { "src/a.py": "value = 1\n" });
+    const parsed = await ruffFindings(context, [{
+      code: "C901", message: "module is too complex (11 > 10)", filename: "src/a.py",
+      location: { row: 1, column: 1 },
+    }]);
+    expect(parsed.findings).toEqual({ "src/a.py | C901 | ~L1": 11 });
+    expect(context.config.notices).toEqual([]);
+  });
 });
 
 describe("ruff captured fixture", () => {

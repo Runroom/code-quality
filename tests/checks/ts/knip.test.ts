@@ -94,6 +94,124 @@ describe("knip synthetic parser", () => {
 
 });
 
+describe("knip single nested package execution", () => {
+  it("runs from the sole owner with flat rebased config and dependency checks", async () => {
+    const tempRoot = mkdtempSync(join(tmpdir(), "knip-owner-"));
+    try {
+      mkdirSync(join(tempRoot, "frontend/src"), { recursive: true });
+      mkdirSync(join(tempRoot, "frontend/node_modules"));
+      writeFileSync(join(tempRoot, "frontend/package.json"), JSON.stringify({
+        dependencies: { "left-pad": "1.3.0" },
+      }));
+      writeFileSync(join(tempRoot, "frontend/src/index.ts"), "export const unused = 1;\n");
+      const ctx = checkContext(tempRoot, "ts");
+      ctx.paths = ["frontend/src"];
+      ctx.config.paths.ts = ["frontend/src"];
+      expect(knipAdapter.applicability(ctx.config)).toEqual({ kind: "run" });
+      expect(knipAdapter.command(ctx).cwd).toBe(join(tempRoot, "frontend"));
+      const config = JSON.parse(knipAdapter.configFiles(ctx)[0]!.content) as Record<string, unknown>;
+      expect(config).not.toHaveProperty("workspaces");
+      expect(config.project).toEqual(expect.arrayContaining(["src/**/*.{ts,tsx,js,jsx,mjs,cjs}"]));
+      const parsed = await knipFindings(ctx, { issues: [
+        { file: "src/index.ts", files: [{ name: "src/index.ts" }] },
+        { file: "package.json", dependencies: [{ name: "left-pad" }] },
+      ] });
+      expect(parsed.findings).toEqual({
+        "frontend/package.json | unused-dependency | left-pad": 1,
+        "frontend/src/index.ts | unused-file | frontend/src/index.ts": 1,
+      });
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("checks node_modules under the sole nested owner", () => {
+    const tempRoot = mkdtempSync(join(tmpdir(), "knip-owner-"));
+    try {
+      mkdirSync(join(tempRoot, "frontend/src"), { recursive: true });
+      writeFileSync(join(tempRoot, "frontend/package.json"), JSON.stringify({
+        dependencies: { "left-pad": "1.3.0" },
+      }));
+      writeFileSync(join(tempRoot, "frontend/src/index.ts"), "");
+      const ctx = checkContext(tempRoot, "ts");
+      ctx.config.paths.ts = ["frontend/src"];
+      expect(knipAdapter.applicability(ctx.config)).toMatchObject({ kind: "error" });
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+});
+
+describe("knip nested owner report paths", () => {
+
+  it("always prefixes relative reports with the nested owner", async () => {
+    const tempRoot = mkdtempSync(join(tmpdir(), "knip-owner-"));
+    try {
+      mkdirSync(join(tempRoot, "app/app"), { recursive: true });
+      writeFileSync(join(tempRoot, "app/package.json"), "{}");
+      writeFileSync(join(tempRoot, "app/app/page.tsx"), "export default 1;\n");
+      const ctx = checkContext(tempRoot, "ts");
+      ctx.paths = ["app/app"];
+      ctx.config.paths.ts = ["app/app"];
+      const parsed = await knipFindings(ctx, { issues: [{
+        file: "app/page.tsx", files: [{ name: "app/page.tsx" }],
+      }] });
+      expect(parsed.findings).toEqual({
+        "app/app/page.tsx | unused-file | app/app/page.tsx": 1,
+      });
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("knip nested package applicability", () => {
+
+  it("runs with no package owner when all paths belong to the repository root", () => {
+    const tempRoot = mkdtempSync(join(tmpdir(), "knip-owner-"));
+    try {
+      mkdirSync(join(tempRoot, "src"));
+      const ctx = checkContext(tempRoot, "ts");
+      ctx.config.paths.ts = ["src"];
+      expect(knipAdapter.applicability(ctx.config)).toEqual({ kind: "run" });
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("treats malformed package.json as declaring no dependencies", () => {
+    const tempRoot = mkdtempSync(join(tmpdir(), "knip-owner-"));
+    try {
+      writeFileSync(join(tempRoot, "package.json"), "{");
+      writeFileSync(join(tempRoot, "next.config.ts"), "export default {};\n");
+      expect(knipAdapter.applicability(checkContext(tempRoot, "ts").config))
+        .toEqual({ kind: "run" });
+      expect(() => knipAdapter.configFiles(checkContext(tempRoot, "ts"))).not.toThrow();
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("skips without a root manifest when TypeScript spans owners", () => {
+    const tempRoot = mkdtempSync(join(tmpdir(), "knip-owner-"));
+    try {
+      for (const owner of ["frontend", "admin"]) {
+        mkdirSync(join(tempRoot, owner, "src"), { recursive: true });
+        writeFileSync(join(tempRoot, owner, "package.json"), "{}");
+      }
+      const ctx = checkContext(tempRoot, "ts");
+      ctx.config.paths.ts = ["frontend/src", "admin/src"];
+      expect(knipAdapter.applicability(ctx.config)).toEqual({
+        kind: "skip",
+        reason: "ts-unused needs a root package.json when TypeScript spans several packages",
+      });
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+});
+
 it("accepts unused dependencies from workspace package manifests", async () => {
   const input = { issues: [{
     file: "packages/cli/package.json",
@@ -203,7 +321,7 @@ describe("knip static framework entries", () => {
       "src/proxy.ts": "export function proxy() {}\n",
       "src/instrumentation-client.js": "export {};\n",
     }, ["src"]);
-    const application = "src/app/**/{page,layout,template,loading,error,global-error,not-found,default,route,icon,apple-icon,opengraph-image,twitter-image,sitemap,robots,manifest,forbidden,unauthorized}.{ts,tsx,js,jsx}";
+    const application = "src/app/**/{page,layout,template,loading,error,global-error,not-found,global-not-found,default,route,icon,apple-icon,opengraph-image,twitter-image,sitemap,robots,manifest,forbidden,unauthorized}.{ts,tsx,js,jsx}";
     expect(generated.entry).toEqual(expect.arrayContaining([
       "next.config.mjs", "src/payload.config.ts", "vitest.config.ts",
       "playwright.config.ts", application, "src/middleware.{ts,js}", "src/proxy.{ts,js}",
@@ -215,6 +333,20 @@ describe("knip static framework entries", () => {
       "src/instrumentation-client.{ts,js}",
     ]));
     expect(generated.entry).not.toContain("src/pages/**/*.{ts,tsx,js,jsx}");
+  });
+
+  it("adds next-intl request configuration entries for the owner package", () => {
+    const generated = generatedConfigAt({
+      "package.json": JSON.stringify({ dependencies: { "next-intl": "^4.0.0" } }),
+      "next.config.ts": "export default {};\n",
+      "src/app/page.tsx": "export default function Page() { return null; }\n",
+    }, ["src"]);
+    expect(generated.entry).toEqual(expect.arrayContaining([
+      "i18n/request.{ts,tsx,js,jsx}", "src/i18n/request.{ts,tsx,js,jsx}",
+    ]));
+    expect(generated.project).toEqual(expect.arrayContaining([
+      "i18n/request.{ts,tsx,js,jsx}", "src/i18n/request.{ts,tsx,js,jsx}",
+    ]));
   });
 });
 
@@ -294,9 +426,21 @@ describe("knip workspace framework config", () => {
       "apps/api/src/index.ts": "",
     }, ["apps/api/src", "apps/web/src"]);
     const workspaces = generated.workspaces as Record<string, Record<string, string[]>>;
-    const appPattern = "src/app/**/{page,layout,template,loading,error,global-error,not-found,default,route,icon,apple-icon,opengraph-image,twitter-image,sitemap,robots,manifest,forbidden,unauthorized}.{ts,tsx,js,jsx}";
+    const appPattern = "src/app/**/{page,layout,template,loading,error,global-error,not-found,global-not-found,default,route,icon,apple-icon,opengraph-image,twitter-image,sitemap,robots,manifest,forbidden,unauthorized}.{ts,tsx,js,jsx}";
     expect(workspaces["apps/web"]?.entry).toEqual(expect.arrayContaining(["next.config.mjs", appPattern]));
     expect(workspaces["apps/api"]?.entry).not.toContain(appPattern);
+  });
+
+  it("adds next-intl request entries relative to a nested owner", () => {
+    const generated = generatedConfigAt({
+      "apps/web/package.json": JSON.stringify({ dependencies: { "next-intl": "^4.0.0" } }),
+      "apps/web/next.config.ts": "export default {};\n",
+      "apps/web/src/app/page.tsx": "export default function Page() { return null; }\n",
+    }, ["apps/web/src"]);
+    expect(generated.entry).toEqual(expect.arrayContaining([
+      "i18n/request.{ts,tsx,js,jsx}", "src/i18n/request.{ts,tsx,js,jsx}",
+    ]));
+    expect(generated.entry).not.toContain("apps/web/i18n/request.{ts,tsx,js,jsx}");
   });
 });
 

@@ -95,6 +95,27 @@ function hasErrorAncestor(node: Node): boolean {
   return false;
 }
 
+interface TargetContext {
+  blockMode: boolean;
+  byteOffset: number;
+  file: string;
+  grammar: Grammar;
+  leaf: Node;
+  root: Node;
+  source: string;
+}
+
+function diagnosticTarget(context: TargetContext): Node | "/" {
+  const { blockMode, byteOffset, file, grammar, leaf, root, source } = context;
+  const target = blockMode ? blockTarget(grammar, leaf) : functionTarget(grammar, leaf, source);
+  if (target) return target;
+  if (grammar !== "python") return anchorError("cannot identify", file, byteOffset);
+  if (root.hasError && (hasErrorAncestor(leaf) || isInsideError(root, leaf))) {
+    return anchorError("unparsed", file);
+  }
+  return "/";
+}
+
 export function createAnchorService(dir = assetsDir()): AnchorService {
   const languages = new Map<Grammar, Promise<Language>>();
   let ready: Promise<void> | undefined;
@@ -124,8 +145,10 @@ export function createAnchorService(dir = assetsDir()): AnchorService {
         const index = byteOffsetToIndex(source, byteOffset);
         const leaf = tree.rootNode.descendantForIndex(index)
           ?? anchorError("cannot identify", file, byteOffset);
-        const target = blockMode ? blockTarget(grammar, leaf) : functionTarget(grammar, leaf, source);
-        if (!target) return anchorError("cannot identify", file, byteOffset);
+        const target = diagnosticTarget({
+          blockMode, byteOffset, file, grammar, leaf, root: tree.rootNode, source,
+        });
+        if (target === "/") return target;
         if (tree.rootNode.hasError
           && (hasErrorAncestor(target) || isInsideError(tree.rootNode, target))) {
           return anchorError("unparsed", file);

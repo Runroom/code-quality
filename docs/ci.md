@@ -48,6 +48,8 @@ jobs:
 
 For npm, use `setup: npm ci`. For Composer, use `setup: composer install` or a suitable non-interactive variant such as `setup: composer install --no-interaction`.
 
+Setup is one shell command and may chain installers, for example `setup: composer install --no-interaction && npm ci`. Drupal and Symfony repositories with a frontend need both dependency trees because ts-unused requires `node_modules/`. The image includes `patch`, so Composer patch plugins used by Drupal can apply project patches.
+
 The image supports these dependency setup recipes:
 
 - `setup: pnpm install --frozen-lockfile` — Corepack honors the repository's `packageManager`; pnpm 10.17.1 and 11.5.2 are pre-cached, and other pins download on demand.

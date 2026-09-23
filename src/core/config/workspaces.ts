@@ -157,9 +157,13 @@ function isConventionalName(name: string): boolean {
   return name.startsWith(".") || DISCOVERY_EXCLUDED_ROOTS.has(name);
 }
 
+const DEPTH_ONE_TS_EXCLUSIONS = new Set([
+  "static", "cypress", "e2e", "examples", "fixtures", "playwright", "storybook-static",
+]);
+
 function depthOnePackages(root: string): string[] {
   return safeDirectories(root)
-    .filter((name) => !isConventionalName(name))
+    .filter((name) => !isConventionalName(name) && !DEPTH_ONE_TS_EXCLUSIONS.has(name))
     .filter((name) => hasManifest(root, name, "package.json"));
 }
 

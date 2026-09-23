@@ -6,6 +6,7 @@ import { LANGUAGES, type Language } from "./schema.ts";
 import { findSourceFiles, languageExtensions } from "./sources.ts";
 import type { SourceSelection } from "./sources.ts";
 import type { ArchitectureSelection } from "./types.ts";
+import { workspaceRoots } from "./workspaces.ts";
 
 const MANIFESTS: Partial<Record<Language, string[]>> = {
   ts: ["package.json"],
@@ -113,9 +114,17 @@ function drupalPaths(root: string, language: Language): string[] {
   return DRUPAL_PATHS[language].filter((path) => existsSync(join(root, path)));
 }
 
-export function detectLanguages(root: string): Language[] {
+export function detectLanguages(root: string, consumerExcludes: readonly string[] = []): Language[] {
   return LANGUAGES.filter((language) => {
     if (drupalPaths(root, language).length > 0) return true;
+    if (language === "ts") {
+      const selection: SourceSelection = {
+        excludes: [...BUILTIN_EXCLUSIONS, ...consumerExcludes, ...TEST_EXCLUSIONS],
+        extensions: languageExtensions("ts", false),
+      };
+      return existsSync(join(root, "package.json"))
+        || workspaceRoots(root, "ts", selection).length > 0;
+    }
     return language === "web"
       ? webSourcesExist(root)
       : MANIFESTS[language]?.some((manifest) => existsSync(join(root, manifest))) === true;

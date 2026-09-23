@@ -35,6 +35,7 @@ describe("generated Knip plugin flags", () => {
     const root = mkdtempSync(join(tmpdir(), "knip-plugins-"));
     try {
       mkdirSync(join(root, "server/src"), { recursive: true });
+      writeFileSync(join(root, "package.json"), "{}");
       writeFileSync(join(root, "server/package.json"), "{}");
       const workspaceContext = checkContext(root, "ts");
       workspaceContext.paths = ["server/src"];
