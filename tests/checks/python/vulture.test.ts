@@ -33,6 +33,33 @@ describe("vulture synthetic parser", () => {
       "vulture-unreachable_code", "vulture-unsatisfiable_condition"]));
   });
 
+  it("anchors module-level unused imports and variables at the file root without a notice", async () => {
+    const moduleContext = checkContext("/r", "python", {
+      "src/a.py": "import os\nunused = 1\n",
+    });
+    const parsed = await vultureFindings(moduleContext, [
+      "src/a.py:1: unused import 'os' (90% confidence)",
+      "src/a.py:2: unused variable 'unused' (60% confidence)",
+    ].join("\n"));
+    expect(parsed.findings).toEqual({
+      "src/a.py | vulture-import | /#os": 1,
+      "src/a.py | vulture-variable | /#unused": 1,
+    });
+    expect(moduleContext.config.notices).toEqual([]);
+  });
+
+  it("keeps the fallback notice for a diagnostic in an unparseable module region", async () => {
+    const broken = checkContext("/r", "python", { "src/a.py": "import (\n" });
+    const parsed = await vultureFindings(
+      broken,
+      "src/a.py:1: unused import 'broken' (90% confidence)",
+    );
+    expect(parsed.findings).toEqual({ "src/a.py | vulture-import | /#broken": 1 });
+    expect(broken.config.notices).toEqual([
+      "anchors for src/a.py fall back to symbol/line keys (grammar could not parse the file)",
+    ]);
+  });
+
   it("runner rejects vulture exit code 1", () => {
     const invocation = vultureAdapter.command(ctx);
     expect(() => spawnTool({ ...invocation, bin: process.execPath,

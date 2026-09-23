@@ -21,7 +21,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       php8.4-pgsql php8.4-sqlite3 php8.4-soap php8.4-xsl php8.4-imagick \
       php8.4-memcached php8.4-amqp php8.4-mongodb php8.4-igbinary php8.4-msgpack \
       php8.4-uuid php8.4-yaml php8.4-ldap php8.4-gmp php8.4-bz2 php8.4-mailparse \
-      php8.4-ds unzip composer python3 python3-venv git ca-certificates curl \
+      php8.4-ds unzip composer python3 python3-venv git patch ca-certificates curl \
     && rm -rf /var/lib/apt/lists/*
 COPY docker/php/99-code-quality.ini /etc/php/8.4/cli/conf.d/99-code-quality.ini
 # TS/JS tools (typescript is required by dependency-cruiser to resolve TS sources)

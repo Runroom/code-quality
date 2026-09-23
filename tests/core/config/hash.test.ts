@@ -43,7 +43,7 @@ describe("configHash", () => {
   });
 
   it("matches the current policy hash when no runtime target is supplied", () => {
-    expect(configHash(baseConfig)).toBe("5725438a068191a110bfba12477cad782ab11bb21f0077cb9c781244d80c9906");
+    expect(configHash(baseConfig)).toBe("da9ca134df6efc017dfcf25dcf2f8005d26762252382f1a2f04d23ebe15d14b9");
   });
 
   it("changes when the derived Python runtime target changes", () => {

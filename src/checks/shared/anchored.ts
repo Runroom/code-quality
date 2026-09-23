@@ -69,11 +69,14 @@ export async function addAnchoredFinding(
   assertInScope(file, ctx.paths);
   const source = ctx.readSource(file);
   const location = detailLocation(source, input);
-  const anchor = await resolveAnchor(ctx, {
+  let anchor = await resolveAnchor(ctx, {
     file, source, offset: byteOffset(source, input), blockMode: input.blockMode,
     fallback: input.fallbackAnchor, symbol: input.symbol,
     line: location.line,
   });
+  if (anchor === "/" && input.anchorSuffix === undefined) {
+    anchor = input.symbol === undefined ? `~L${location.line}` : `/~${input.symbol}`;
+  }
   const message = input.message === undefined ? {} : { message: input.message };
   const threshold = input.threshold === undefined ? {} : { threshold: input.threshold };
   findings.add({

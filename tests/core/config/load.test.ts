@@ -211,6 +211,50 @@ describe("loadConfig auto-detection notices", () => {
 });
 
 describe("loadConfig workspace roots", () => {
+  it("detects a depth-one TypeScript package beside a Python application", () => {
+    withRoot({
+      "pyproject.toml": "{}",
+      "src/app.py": "",
+      "frontend/package.json": "{}",
+      "frontend/src/index.ts": "",
+    }, [], (root) => {
+      const config = loadConfig(root);
+      expect(config.languages).toEqual(["ts", "python"]);
+      expect(config.paths.ts).toEqual(["frontend/src"]);
+    });
+  });
+
+  it.each(["node_modules/vendor", "tests/frontend"])(
+    "does not detect TypeScript from an excluded %s package",
+    (directory) => withRoot({
+      "pyproject.toml": "{}",
+      "src/app.py": "",
+      [`${directory}/package.json`]: "{}",
+      [`${directory}/src/index.ts`]: "",
+    }, [], (root) => expect(loadConfig(root).languages).toEqual(["python"])),
+  );
+
+  it("does not detect TypeScript from a consumer-excluded depth-one package", () => {
+    withRoot({
+      ".code-quality.yml": "exclude: [frontend/**]\n",
+      "pyproject.toml": "{}",
+      "src/app.py": "",
+      "frontend/package.json": "{}",
+      "frontend/src/index.ts": "",
+    }, [], (root) => expect(loadConfig(root).languages).toEqual(["python"]));
+  });
+
+  it("does not detect TypeScript from a depth-one Cypress package", () => {
+    withRoot({
+      "pyproject.toml": "{}", "src/app.py": "",
+      "cypress/package.json": "{}", "cypress/e2e/x.cy.ts": "",
+    }, [], (root) => expect(loadConfig(root).languages).toEqual(["python"]));
+  });
+
+});
+
+describe("loadConfig manifest workspace roots", () => {
+
   it("adds Composer autoload roots to conventional PHP roots", () => {
     const packageRoots = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"]
       .map((name) => `packages/${name}/src`);

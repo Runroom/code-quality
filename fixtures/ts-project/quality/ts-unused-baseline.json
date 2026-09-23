@@ -1,7 +1,7 @@
 {
   "version": 1,
   "tool": "knip@6.35.1",
-  "configHash": "09cea93df07b517f2cc1af3418a1bcca1128f0b056897ba948a03afad4aa1609",
+  "configHash": "61d7745be542a70d4ba2343dd4ab86580e5b290f95f733782b2c43d0923fc861",
   "findings": {
     "package.json | unused-dependency | left-pad": 1,
     "src/cognitive.ts | unused-file | src/cognitive.ts": 1,

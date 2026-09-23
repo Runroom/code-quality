@@ -17,6 +17,7 @@ import { MAKEFILE_SNIPPET } from "../../src/cli/scaffold.ts";
 import type { CliDeps } from "../../src/cli/deps.ts";
 import { fakeAdapter, fakeDeps } from "../helpers/fake-adapter.ts";
 import { createStyle } from "../../src/cli/style.ts";
+import { CLI_VERSION } from "../../src/cli/version.ts";
 
 const roots: string[] = [];
 
@@ -256,8 +257,8 @@ describe("init discovered configuration", () => {
     expect(output.at(-1)).toBe(
       " Next     review .code-quality.yml, run make quality, commit quality/\n",
     );
-    expect(output.filter((line) => line.includes("code-quality 1.2.0"))).toEqual([
-      " code-quality 1.2.0 · init · ts\n",
+    expect(output.filter((line) => line.includes(`code-quality ${CLI_VERSION}`))).toEqual([
+      ` code-quality ${CLI_VERSION} · init · ts\n`,
     ]);
     expect(errors).toEqual([]);
   });

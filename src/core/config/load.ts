@@ -85,7 +85,7 @@ function configuredPathLanguages(config: ConsumerConfig): Language[] {
 
 function resolveLanguages(root: string, config: ConsumerConfig): LanguageResolution {
   const configuredPaths = configuredPathLanguages(config);
-  const detected = detectLanguages(root);
+  const detected = detectLanguages(root, config.exclude ?? []);
   const languages = config.languages ?? [...new Set([...detected, ...configuredPaths])];
   return { languages: [...languages] };
 }

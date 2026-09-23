@@ -6,10 +6,15 @@ import { addAnchoredFinding, excludeGlobs, extractMeasurement, fail, FindingsBui
 import type { CheckAdapter, CheckContext, ParsedFindings } from "../shared/kit.ts";
 import type { ResolvedConfig } from "../../core/config/types.ts";
 
-const METRICS: Record<string, { pattern: RegExp; threshold: number }> = {
-  "eslint(complexity)": { pattern: /complexity of (\d+)\./u, threshold: POLICY.complexity },
+const METRICS: Record<string, { pattern: RegExp; threshold: number; jsxThreshold?: number }> = {
+  "eslint(complexity)": {
+    pattern: /complexity of (\d+)\./u,
+    threshold: POLICY.complexity,
+    jsxThreshold: POLICY.jsx.complexity,
+  },
   "eslint(max-lines-per-function)": {
     pattern: /too many lines \((\d+)\)/u, threshold: POLICY.maxLinesPerFunction,
+    jsxThreshold: POLICY.jsx.maxLinesPerFunction,
   },
   "eslint(max-params)": { pattern: /too many parameters \((\d+)\)/u, threshold: POLICY.maxParams },
   "eslint(max-depth)": { pattern: /nested too deeply \((\d+)\)/u, threshold: POLICY.maxDepth },
@@ -50,7 +55,25 @@ export function oxlintConfig(_config: ResolvedConfig): string {
       "max-depth": ["warn", POLICY.maxDepth],
       "max-nested-callbacks": ["warn", POLICY.maxNestedCallbacks],
     },
+    overrides: [{
+      files: ["**/*.tsx", "**/*.jsx"],
+      rules: {
+        complexity: ["warn", POLICY.jsx.complexity],
+        "max-lines-per-function": ["warn", {
+          max: POLICY.jsx.maxLinesPerFunction,
+          skipBlankLines: true,
+          skipComments: true,
+        }],
+      },
+    }],
   }, null, 2);
+}
+
+function metricThreshold(
+  metric: { threshold: number; jsxThreshold?: number },
+  file: string,
+): number {
+  return /\.(?:tsx|jsx)$/u.test(file) ? metric.jsxThreshold ?? metric.threshold : metric.threshold;
 }
 
 export async function oxlintFindings(ctx: CheckContext, input: unknown): Promise<ParsedFindings> {
@@ -65,13 +88,16 @@ export async function oxlintFindings(ctx: CheckContext, input: unknown): Promise
       );
     }
     const file = relativize(ctx.root, diagnostic.filename);
+    const threshold = metricThreshold(metric, file);
+    const value = extractMeasurement(metric.pattern, diagnostic.message, diagnostic.code);
+    if (value <= threshold) return fail(`${diagnostic.code} is below policy threshold ${threshold}`);
     const blockMode = diagnostic.code === "eslint(max-depth)";
     await addAnchoredFinding(ctx, findings, {
       file, rule: diagnostic.code,
-      value: extractMeasurement(metric.pattern, diagnostic.message, diagnostic.code),
+      value,
       offset: diagnostic.labels[0]!.span.offset, blockMode,
       symbol: SYMBOL.exec(diagnostic.message)?.[1],
-      message: diagnostic.message, threshold: metric.threshold,
+      message: diagnostic.message, threshold,
     });
   }
   return findings.build();

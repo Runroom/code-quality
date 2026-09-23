@@ -24,6 +24,7 @@ describe("oxlint config and command", () => {
     const config = JSON.parse(oxlintConfig(checkContext(root).config)) as {
       categories: Record<string, unknown>;
       rules: Record<string, unknown>;
+      overrides: unknown[];
     };
     expect(config.categories).toEqual({
       correctness: "off", suspicious: "off", pedantic: "off", perf: "off",
@@ -36,6 +37,15 @@ describe("oxlint config and command", () => {
       "max-depth": ["warn", 3],
       "max-nested-callbacks": ["warn", 3],
     });
+    expect(config.overrides).toEqual([{
+      files: ["**/*.tsx", "**/*.jsx"],
+      rules: {
+        complexity: ["warn", 15],
+        "max-lines-per-function": ["warn", {
+          max: 120, skipBlankLines: true, skipComments: true,
+        }],
+      },
+    }]);
     const commandContext = checkContext(root);
     commandContext.config.exclude.push("custom/**");
     const args = oxlintAdapter.command(commandContext).args;
@@ -110,6 +120,24 @@ describe("oxlint synthetic parser", () => {
       report("eslint(complexity)", "complexity of 11.", Buffer.byteLength("// café 🎨\nexport function ")),
     );
     expect(Object.keys(moved.findings)).toEqual(Object.keys(original.findings));
+  });
+});
+
+describe("oxlint JSX policy", () => {
+  it("uses JSX complexity thresholds when parsing TSX diagnostics", async () => {
+    const source = "export function named(): number { return 1; }\n";
+    const tsxContext = checkContext("/r", "ts", { "src/a.tsx": source });
+    const below = report("eslint(complexity)", "complexity of 14.") as {
+      diagnostics: Array<{ filename: string }>;
+    };
+    below.diagnostics[0]!.filename = "src/a.tsx";
+    await expect(oxlintFindings(tsxContext, below)).rejects.toThrow("below policy threshold 15");
+    const above = report("eslint(complexity)", "complexity of 16.") as {
+      diagnostics: Array<{ filename: string }>;
+    };
+    above.diagnostics[0]!.filename = "src/a.tsx";
+    const parsed = await oxlintFindings(tsxContext, above);
+    expect(Object.values(parsed.details)[0]).toMatchObject({ value: 16, threshold: 15 });
   });
 });
 

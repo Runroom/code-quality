@@ -10,7 +10,7 @@ The image owns policy. Consumer configuration can select languages, paths, exclu
 
 | Check | Language | Tool | Fixed threshold and semantics |
 | --- | --- | --- | --- |
-| Complexity | TS/JS | Oxlint 1.82.0 | Complexity 10; 60 lines per function excluding blanks and comments; 4 parameters; depth 3; 3 nested callbacks. Only warning diagnostics are accepted. |
+| Complexity | TS/JS | Oxlint 1.82.0 | Complexity 10 and 60 lines per function; `.tsx`/`.jsx` use 15 and 120. Lines exclude blanks and comments. Parameters 4; depth 3; nested callbacks 3. Only warning diagnostics are accepted. |
 | Complexity | PHP | PHPCS 4.0.4, Slevomat 8.31.1, Runroom standard | Cyclomatic complexity 10; nesting 3; function length 60; parameters 4. |
 | Complexity | Python | Ruff 0.16.6 | C901 10; PLR0915 60 statements; PLR0913 4 arguments; PLR1702 3 nested blocks. |
 | Cognitive | TS/JS | Fallow 3.23.0 | Values greater than 15 block. |
@@ -26,6 +26,8 @@ The image owns policy. Consumer configuration can select languages, paths, exclu
 | Architecture | Python | import-linter 2.15 | Runs only with `.importlinter` or a configured rules file. |
 
 Built-in test, generated-file, and framework exclusions apply before these checks. See [Configuration](configuration.md#built-in-exclusions).
+
+When `.venv` or `venv` is present, deptry reads installed distribution metadata there to resolve package names to import modules; symlinked environment directories are ignored. Python dependency setup should install into the consumer virtualenv, for example with `uv sync` or `pip install` targeting `.venv`.
 
 ## v1 tool pins
 
