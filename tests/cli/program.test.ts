@@ -18,6 +18,7 @@ import type { CliDeps } from "../../src/cli/deps.ts";
 import { fakeAdapter, fakeDeps } from "../helpers/fake-adapter.ts";
 import { TOOL_PINS } from "../../src/registry.ts";
 import { createStyle } from "../../src/cli/style.ts";
+import { CLI_VERSION } from "../../src/cli/version.ts";
 
 const roots: string[] = [];
 
@@ -55,7 +56,7 @@ let errors: string[] = [];
 
 function expectRegressionOutput(): void {
   expect(outputs).toEqual([
-    " code-quality 1.2.0 · ts · 3 checks\n",
+    ` code-quality ${CLI_VERSION} · ts · 3 checks\n`,
     "\n",
     " ✔ ts-alpha  node 0.0.0  0 findings\n",
     " ✖ ts-beta   node 0.0.0  1 finding · 1 new\n",
