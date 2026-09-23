@@ -1,7 +1,7 @@
 {
   "version": 1,
   "tool": "lint-imports@2.15",
-  "configHash": "2b7ec686151a6782ee8a58da019f29b963f1ccfac954a4de036a6fc91cf30f78",
+  "configHash": "1864e3ffa415a8a465e63df9e079b80fa7770548a924223fd029429878f9b2f0",
   "findings": {
     "src/demo_app/domain/model.py | import-linter:Layers | demo_app.infra.db": 1
   }

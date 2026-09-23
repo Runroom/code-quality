@@ -1,7 +1,7 @@
 {
   "version": 1,
   "tool": "fallow@3.23.0",
-  "configHash": "30e5965bab93b756d73c3815d4e68fbd5b0e19b797c6b32a80dce524f7fb52b5",
+  "configHash": "09cea93df07b517f2cc1af3418a1bcca1128f0b056897ba948a03afad4aa1609",
   "findings": {
     "src/cognitive.ts | cognitive-complexity | /function:nested": 21,
     "src/complexity.ts | cognitive-complexity | /function:busy": 21

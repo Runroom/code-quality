@@ -53,7 +53,11 @@ Without an explicit `languages` list, code-quality combines detected languages w
 | Python | `pyproject.toml` or `setup.py` | Existing `src/` |
 | Web | `.twig`, `.html`, `.css`, `.scss`, or `.less` below `templates/` or `assets/` | Existing `templates/` and `assets/` directories |
 
-When a manifest detects a language, conventional roots with sources are kept, then workspace roots from manifests are added. TypeScript workspace roots come from `pnpm-workspace.yaml` packages, `package.json` workspaces, and depth-1 directories with their own `package.json`; PHP roots come from `composer.json` autoload `psr-4`, `psr-0`, and `classmap` directories; Python roots come from `[tool.uv.workspace]` members minus `exclude` and `[tool.setuptools.packages.find]` `where`. Declared TypeScript members must contain `package.json`, and declared Python members must contain `pyproject.toml`. Member patterns support literal path segments, `*`, `**`, at most one `*` inside a segment, and `!` negations. The member walk reaches depth three; each manifest pattern is capped at 200 characters and only the first 200 include and first 200 exclude patterns are considered. Leading `./` prefixes, repeated slashes, and `.` path segments are normalized. A member maps to `<member>/src` when it exists. Only directories with source files count. When no conventional root has sources, workspace roots and depth-1 discovered roots are unioned, and a discovered directory containing a workspace root is dropped. A `Notice:` lists added roots, and `init` writes them into the generated `paths.<language>`. A depth-1 directory with its own `package.json`, such as `website/`, becomes a TypeScript root. Depth-1 discovery remains the fallback when nothing else resolves; it ignores hidden, test, build, dependency, generated, and other conventional non-source directories. Drupal projects keep the curated custom module, theme, and profile PHP roots instead of adding Composer autoload roots.
+Conventional roots with sources are kept and workspace roots from manifests are added: TS/JS from `pnpm-workspace.yaml`, `package.json` `workspaces`, and depth-1 directories with their own `package.json`; PHP from `composer.json` `autoload` directories; Python from `[tool.uv.workspace]` members and `[tool.setuptools.packages.find]` `where`. A TS member maps to `<member>/src` only when no source exists elsewhere in the member. Member patterns support literal segments, `*`, `**`, one `*` inside a segment, and `!` negations; other patterns are ignored. Without conventional roots, depth-1 discovery is unioned with workspace roots. A `Notice:` lists added roots and `init` writes them. Drupal keeps its curated PHP roots.
+
+The Python target comes from the repository-root `.python-version`, then the root `project.requires-python`; if neither defines it, the highest target among `[tool.uv.workspace]` members is used. Targets newer than the image still use CPython 3.14 tools with a notice. A Python target is part of the configuration hash only when Python resolves. PHPStan infers the PHP version from `composer.json` `config.platform.php`.
+
+A directory without a manifest inside a workspace container, such as `packages/scripts`, is not analysed unless listed in `paths.<language>`.
 
 If discovery finds no roots, configuration loading omits the language and prints a `Notice:` explaining how to add `paths.<language>`. An explicitly listed language or explicit path still fails when it contains no source files.
 
@@ -92,9 +96,11 @@ exclude:
   - "web/modules/custom/site/generated/**"
 ```
 
-## Payload/Next profile
+## Payload and Next profiles
 
-When `next.config.{js,mjs,cjs,ts,mts}` exists at the repository root, or `payload.config.{ts,js,mjs,mts}` exists at the root or under `src/`, code-quality activates the Payload/Next profile for resolved TypeScript sources. For every resolved TypeScript root `<ts-root>`, it excludes:
+Profiles are detected separately for the repository root and each workspace owner of a resolved TS root. `next.config.{js,mjs,cjs,ts,mts}` activates the Next profile, which excludes the owner's `.next/**` and `next-env.d.ts` only.
+
+`payload.config.{ts,js,mjs,mts}` in the owner root or `src/`, or a `payload` dependency or dev dependency in that owner's `package.json`, activates the Payload profile. It excludes these paths under every TS root owned by that package:
 
 - `<ts-root>/**/payload-types.ts`
 - `<ts-root>/**/importMap.js`
@@ -102,10 +108,9 @@ When `next.config.{js,mjs,cjs,ts,mts}` exists at the repository root, or `payloa
 - `<ts-root>/**/migrations/**`
 - `<ts-root>/**/migrations-*/**`
 - `<ts-root>/**/seed/**`
-- `.next/**`
-- `next-env.d.ts`
+A TS root named `app` also excludes `<ts-root>/[(]payload[)]/**`. One `Notice:` identifies each active profile kind and lists non-root owners. Dependency-cruiser does not apply exclude globs.
 
-A `Notice:` identifies the active Payload/Next defaults. `.next/**` and `next-env.d.ts` remain repository-root exclusions; the generated-code patterns are scoped to TypeScript roots. Dependency-cruiser does not apply exclude globs.
+Payload exclusions scoped to a TS root also apply to other languages under the same directory.
 
 ## What `init` writes
 

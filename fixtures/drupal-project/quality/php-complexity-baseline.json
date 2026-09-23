@@ -1,6 +1,6 @@
 {
   "version": 1,
   "tool": "phpcs@4.0.4",
-  "configHash": "e0fa6304b2c3e12e85b64f67a40efc89b20573dc649440e738beef4f68e3a3cb",
+  "configHash": "788bbffbbd6d43bd4fcab5854d279bebdf4215471f87f6d6b60cd83bacc49260",
   "findings": {}
 }

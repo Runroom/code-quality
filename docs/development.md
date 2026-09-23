@@ -2,6 +2,8 @@
 
 The repository uses Node 24 and pnpm. Do not update generated policy output without reviewing the native tool behavior that produced it.
 
+The runtime image has a default CPython 3.13 tool virtual environment and a second CPython 3.14 environment at `/opt/venv314`. Both are installed from `docker/python/requirements.txt`.
+
 ## Verification commands
 
 ```sh
@@ -17,7 +19,7 @@ pnpm capture <adapter-id> <fixture-directory>
 | `pnpm verify` | Runs type checking, linting, tests, and the bundle build. |
 | `pnpm build:launcher` | Builds the npm launcher package. |
 | `pnpm docker:build` | Builds the local analysis image. |
-| `pnpm integration` | Exercises the TS, PHP, Python, web, Drupal, Payload/Next, and monorepo fixture repositories plus deliberate mutations against a locally built image. |
+| `pnpm integration` | Exercises the TS, PHP, Python (`python-project` and `python314-project`), web, Drupal, Payload/Next, and monorepo fixture repositories plus deliberate mutations against a locally built image. |
 | `pnpm capture …` | Captures a selected adapter's native output from a pinned image tool for parser tests. |
 
 On its first run, integration installs fixture dependencies through the image. Native-output fixtures preserve the actual supported tool format and feed adapter parser tests.
@@ -26,13 +28,15 @@ On its first run, integration installs fixture dependencies through the image. N
 
 A tool bump changes policy:
 
-1. Change the pin in `src/registry.ts` and the image build definition.
+1. Change the pin in `src/registry.ts` and the image build definition. A Python tool bump changes `docker/python/requirements.txt`, which feeds both virtual environments.
 2. Build an image containing exactly that tool and capture fresh native-output fixtures.
 3. Run unit tests, integration tests, and `doctor`.
 4. Build and release the new image tags.
 5. Ask consumers to review the change, remove affected snapshots, and run `check --initialize`.
 
 Ordinary `--update` does not cross a tool-version gate. The project does not use Renovate for v1, and `doctor` is the final authority for versions in a built image.
+
+Generated-configuration changes that alter tool settings or scan scope, including plugin toggles, extensions, and profiles, must bump `POLICY_VERSION` like a tool bump so consumers re-initialize affected baselines.
 
 ## Version changes
 

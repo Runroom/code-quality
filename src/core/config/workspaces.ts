@@ -1,5 +1,5 @@
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, lstatSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { dirname, join } from "node:path";
 
 import { parse as parseToml } from "smol-toml";
 import { parse as parseYaml } from "yaml";
@@ -22,9 +22,13 @@ function strings(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === "string") : [];
 }
 
-function readRecord(file: string, parse: (content: string) => unknown): Record<string, unknown> | undefined {
+export function readRecord(
+  file: string,
+  parse: (content: string) => unknown,
+): Record<string, unknown> | undefined {
   try {
-    if (statSync(file).size > MAX_MANIFEST_SIZE) return undefined;
+    const stat = statSync(file);
+    if (!stat.isFile() || stat.size > MAX_MANIFEST_SIZE) return undefined;
     const value = parse(readFileSync(file, "utf8"));
     return isRecord(value) ? value : undefined;
   } catch {
@@ -159,14 +163,18 @@ function depthOnePackages(root: string): string[] {
     .filter((name) => hasManifest(root, name, "package.json"));
 }
 
-function preferSrcSubdir(root: string, member: string): string {
+function preferSrcSubdir(root: string, member: string, selection?: SourceSelection): string {
   const source = `${member}/src`;
-  return existsSync(join(root, source)) ? source : member;
+  if (!existsSync(join(root, source))) return member;
+  if (selection === undefined) return source;
+  const outsideSrc = findSourceFiles(root, [member], "ts", selection)
+    .some((file) => !file.startsWith(`${source}/`));
+  return outsideSrc ? member : source;
 }
 
-function typeScriptCandidates(root: string): string[] {
+function typeScriptCandidates(root: string, selection: SourceSelection): string[] {
   return [...workspaceMemberDirectories(root), ...depthOnePackages(root)]
-    .map((member) => preferSrcSubdir(root, member));
+    .map((member) => preferSrcSubdir(root, member, selection));
 }
 
 function composerMapDirectories(value: unknown): string[] {
@@ -204,18 +212,41 @@ function nestedRecord(value: unknown, keys: readonly string[]): Record<string, u
   return isRecord(current) ? current : undefined;
 }
 
-function pythonCandidates(root: string): string[] {
+export function uvWorkspaceMemberDirectories(root: string): string[] {
   const project = readRecord(join(root, "pyproject.toml"), parseToml);
   const workspace = nestedRecord(project, ["tool", "uv", "workspace"]);
-  const setuptools = nestedRecord(project, ["tool", "setuptools", "packages", "find"]);
   const patterns = [
     ...strings(workspace?.members),
     ...strings(workspace?.exclude).map((pattern) => `!${pattern}`),
   ];
-  const members = expandMemberGlobs(root, patterns)
-    .filter((member) => hasManifest(root, member, "pyproject.toml"))
+  return expandMemberGlobs(root, patterns)
+    .filter((member) => hasManifest(root, member, "pyproject.toml"));
+}
+
+function pythonCandidates(root: string): string[] {
+  const project = readRecord(join(root, "pyproject.toml"), parseToml);
+  const setuptools = nestedRecord(project, ["tool", "setuptools", "packages", "find"]);
+  const members = uvWorkspaceMemberDirectories(root)
     .map((member) => preferSrcSubdir(root, member));
   return [...members, ...strings(setuptools?.where)];
+}
+
+function isFile(path: string): boolean {
+  try {
+    return lstatSync(path).isFile();
+  } catch {
+    return false;
+  }
+}
+
+export function ownerOf(root: string, path: string): string {
+  let candidate = path.replace(/\/+$/u, "") || ".";
+  while (candidate !== ".") {
+    if (isFile(join(root, candidate, "package.json"))) return candidate;
+    const parent = dirname(candidate);
+    candidate = parent === candidate ? "." : parent;
+  }
+  return ".";
 }
 
 function reduceRoots(candidates: readonly string[]): string[] {
@@ -228,7 +259,7 @@ function reduceRoots(candidates: readonly string[]): string[] {
 export function workspaceRoots(root: string, language: Language, selection: SourceSelection): string[] {
   if (language === "web") return [];
   const candidates = language === "ts"
-    ? typeScriptCandidates(root)
+    ? typeScriptCandidates(root, selection)
     : language === "php" ? phpCandidates(root) : pythonCandidates(root);
   const valid = candidates.flatMap((candidate) => {
     const directory = normalize(candidate);

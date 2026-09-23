@@ -1,0 +1,9 @@
+[importlinter]
+root_package = demo314
+
+[importlinter:contract:layers]
+name = Layers
+type = layers
+layers =
+    demo314.app
+    demo314.util

@@ -8,9 +8,9 @@ fixtures/*/.code-quality-tmp/
 fixtures/*/node_modules/
 fixtures/*/package-lock.json
 fixtures/php-project/vendor/
-fixtures/python-project/.venv/
-fixtures/python-project/.import_linter_cache/
-fixtures/python-project/complexipy-results.json
+fixtures/*/.venv/
+fixtures/*/.import_linter_cache/
+fixtures/*/complexipy-results.json
 *.log
 .pnpm-store/
 .deptrac.cache

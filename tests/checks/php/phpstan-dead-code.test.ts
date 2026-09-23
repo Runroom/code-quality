@@ -33,6 +33,13 @@ function messagesReport(messages: Array<{ message: string; line: number; identif
   };
 }
 
+describe("phpstan dead-code configuration", () => {
+  it("lets PHPStan infer the PHP version from Composer", () => {
+    const context = checkContext(root, "php");
+    expect(phpstanDeadCodeAdapter.configFiles(context)[0]!.content).not.toContain("phpVersion:");
+  });
+});
+
 describe("phpstan dead-code synthetic parser", () => {
   it("accepts dotted ShipMonk dead-code identifiers", async () => {
     expect((await phpstanFindings(

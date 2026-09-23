@@ -60,4 +60,8 @@ describe("isExcluded", () => {
     ]);
     expect(PAYLOAD_NEXT_EXCLUSIONS).toHaveLength(8);
   });
+
+  it("excludes the Payload route group when app itself is the TypeScript root", () => {
+    expect(isExcluded("app/(payload)/admin/page.tsx", payloadNextExclusions(["app"]))).toBe(true);
+  });
 });

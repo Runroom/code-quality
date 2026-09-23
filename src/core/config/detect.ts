@@ -34,12 +34,15 @@ const DRUPAL_PATHS: Record<"php" | "web", string[]> = {
   web: ["web/themes/custom", "docroot/themes/custom"],
 };
 
-export const PAYLOAD_NEXT_CONFIGS = [
+export const NEXT_CONFIGS = [
   "next.config.js",
   "next.config.mjs",
   "next.config.cjs",
   "next.config.ts",
   "next.config.mts",
+] as const;
+
+export const PAYLOAD_CONFIGS = [
   "payload.config.ts",
   "payload.config.js",
   "payload.config.mjs",
@@ -49,6 +52,13 @@ export const PAYLOAD_NEXT_CONFIGS = [
   "src/payload.config.mjs",
   "src/payload.config.mts",
 ] as const;
+
+export const PAYLOAD_NEXT_CONFIGS = [...NEXT_CONFIGS, ...PAYLOAD_CONFIGS] as const;
+
+export interface ProjectProfiles {
+  next: boolean;
+  payload: boolean;
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -66,8 +76,28 @@ export function isDrupalProject(root: string): boolean {
   }
 }
 
+function hasPayloadDependency(root: string): boolean {
+  try {
+    const parsed: unknown = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
+    if (!isRecord(parsed)) return false;
+    return [parsed.dependencies, parsed.devDependencies]
+      .some((dependencies) => isRecord(dependencies) && "payload" in dependencies);
+  } catch {
+    return false;
+  }
+}
+
+export function projectProfiles(root: string): ProjectProfiles {
+  return {
+    next: NEXT_CONFIGS.some((file) => existsSync(join(root, file))),
+    payload: PAYLOAD_CONFIGS.some((file) => existsSync(join(root, file)))
+      || hasPayloadDependency(root),
+  };
+}
+
 export function isPayloadNextProject(root: string): boolean {
-  return PAYLOAD_NEXT_CONFIGS.some((file) => existsSync(join(root, file)));
+  const profiles = projectProfiles(root);
+  return profiles.next || profiles.payload;
 }
 
 function containsSources(root: string, paths: string[], language: Language): boolean {

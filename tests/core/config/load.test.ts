@@ -11,7 +11,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { loadConfig } from "../../../src/core/config/load.ts";
-import { isExcluded, payloadNextExclusions } from "../../../src/core/config/exclusions.ts";
+import { isExcluded, nextExclusions, payloadExclusions } from "../../../src/core/config/exclusions.ts";
 
 const fixtureRoot = join(process.cwd(), "tests/fixtures/config");
 
@@ -49,6 +49,10 @@ function withFixture(
 
 function expectLoadFailure(root: string, message: string | RegExp): void {
   expect(() => loadConfig(root)).toThrow(message);
+}
+
+function pythonRuntimeNotices(notices: readonly string[]): string[] {
+  return notices.filter((notice) => notice.startsWith("python: targeting"));
 }
 
 describe("loadConfig", () => {
@@ -411,8 +415,8 @@ describe("Drupal and vendored-source profiles", () => {
   });
 });
 
-describe("Payload/Next profile", () => {
-  it("adds generated exclusions and a notice and changes the config hash", () => {
+describe("Payload and Next profiles", () => {
+  it("a plain Next app excludes only Next output and keeps migrations and seed in scope", () => {
     const sourceFiles = {
       "package.json": "{}",
       "src/app/page.tsx": "export default function Page() { return null; }\n",
@@ -426,13 +430,29 @@ describe("Payload/Next profile", () => {
       const config = loadConfig(root);
       expect(config.exclude).toEqual([
         "**/consumer-generated/**",
-        ...payloadNextExclusions(["src"]),
+        ...nextExclusions("."),
       ]);
       expect(config.notices).toContain(
-        "Payload/Next profile: excluding generated Payload types, import map, admin route group, "
-          + "migrations, seed data, and Next build output",
+        "Next profile: excluding Next build output",
       );
+      expect(isExcluded("src/migrations/x.ts", config.exclude)).toBe(false);
+      expect(isExcluded("src/seed/x.ts", config.exclude)).toBe(false);
       expect(config.configHash).not.toBe(ordinaryHash);
+    });
+  });
+
+  it("activates Payload exclusions from the package dependency", () => {
+    withRoot({
+      "package.json": JSON.stringify({ dependencies: { payload: "3.0.0" } }),
+      "src/index.ts": "",
+      "src/payload-types.ts": "",
+    }, [], (root) => {
+      const config = loadConfig(root);
+      expect(config.exclude).toEqual(payloadExclusions(["src"]));
+      expect(config.notices).toContain(
+        "Payload profile: excluding generated Payload types, import map, admin route group, "
+          + "migrations, and seed data",
+      );
     });
   });
 });
@@ -442,7 +462,7 @@ describe("Payload/Next scoped exclusions", () => {
     withRoot({
       ".code-quality.yml": "paths:\n  ts: [assets]\n",
       "package.json": "{}",
-      "next.config.mjs": "export default {};\n",
+      "payload.config.ts": "export default {};\n",
       "assets/index.ts": "",
       "assets/migrations/x.ts": "",
       "src/migrations/Version1.php": "<?php\n",
@@ -484,9 +504,31 @@ describe("Payload/Next scoped exclusions", () => {
       expect(config.languages).toEqual(["php"]);
       expect(config.exclude).toEqual([]);
       expect(config.notices).not.toContain(
-        "Payload/Next profile: excluding generated Payload types, import map, admin route group, "
-          + "migrations, seed data, and Next build output",
+        "Payload profile: excluding generated Payload types, import map, admin route group, "
+          + "migrations, and seed data",
       );
+    });
+  });
+});
+
+describe("workspace Payload and Next profiles", () => {
+  it("scopes Payload exclusions and notices to the owning workspace", () => {
+    withRoot({
+      "package.json": JSON.stringify({ workspaces: ["apps/*"] }),
+      "apps/cms/package.json": "{}",
+      "apps/cms/payload.config.ts": "export default {};\n",
+      "apps/cms/src/index.ts": "",
+      "apps/cms/src/types/payload-types.ts": "",
+      "apps/web/package.json": "{}",
+      "apps/web/next.config.mjs": "export default {};\n",
+      "apps/web/src/index.ts": "",
+      "apps/web/src/migrations/keep.ts": "",
+    }, [], (root) => {
+      const config = loadConfig(root);
+      expect(isExcluded("apps/cms/src/types/payload-types.ts", config.exclude)).toBe(true);
+      expect(isExcluded("apps/web/src/migrations/keep.ts", config.exclude)).toBe(false);
+      expect(config.notices).toContain("Payload profile: excluding generated Payload types, import map, admin route group, migrations, and seed data (apps/cms)");
+      expect(config.notices).toContain("Next profile: excluding Next build output (apps/web)");
     });
   });
 });
@@ -535,6 +577,76 @@ it.each([
         + `paths.${language} listing your source roots, e.g. paths: { ${language}: [app, lib] }`,
     ),
   );
+});
+
+describe("Python runtime configuration", () => {
+  it("adds one Python 3.14 runtime notice", () => {
+    withRoot({
+      "pyproject.toml": "[project]\nrequires-python = \">=3.14\"\n",
+      "src/index.py": "",
+    }, ["src"], (root) => {
+      expect(pythonRuntimeNotices(loadConfig(root).notices))
+        .toEqual([
+          "python: targeting 3.14 (from requires-python); tools run on CPython 3.14.7",
+        ]);
+    });
+  });
+
+  it("omits the runtime notice without a resolved Python language", () => {
+    withRoot({ ".python-version": "3.14\n", "package.json": "{}", "src/index.ts": "" }, ["src"], (root) => {
+      expect(pythonRuntimeNotices(loadConfig(root).notices)).toEqual([]);
+    });
+  });
+
+  it("omits the runtime notice below Python 3.14", () => {
+    withRoot({ ".python-version": "3.12\n", "pyproject.toml": "[project]\n", "src/index.py": "" }, ["src"], (root) => {
+      expect(pythonRuntimeNotices(loadConfig(root).notices)).toEqual([]);
+    });
+  });
+
+  it("includes an added Python target in the config hash", () => {
+    const files = { "pyproject.toml": "[project]\n", "src/index.py": "" };
+    let hashWithout = "";
+    withRoot(files, ["src"], (root) => { hashWithout = loadConfig(root).configHash; });
+    withRoot({ ...files, ".python-version": "3.14\n" }, ["src"], (root) => {
+      expect(loadConfig(root).configHash).not.toBe(hashWithout);
+    });
+  });
+
+  it("changes the config hash when the Python target changes", () => {
+    const files = { "pyproject.toml": "[project]\n", "src/index.py": "" };
+    let hash312 = "";
+    withRoot({ ...files, ".python-version": "3.12\n" }, ["src"], (root) => {
+      hash312 = loadConfig(root).configHash;
+    });
+    withRoot({ ...files, ".python-version": "3.14\n" }, ["src"], (root) => {
+      expect(loadConfig(root).configHash).not.toBe(hash312);
+    });
+  });
+
+  it("ignores a Python target in the hash when Python is not a resolved language", () => {
+    const files = { "package.json": "{}", "src/index.ts": "" };
+    let hashWithout = "";
+    withRoot(files, ["src"], (root) => { hashWithout = loadConfig(root).configHash; });
+    withRoot({ ...files, ".python-version": "3.14\n" }, ["src"], (root) => {
+      expect(loadConfig(root).configHash).toBe(hashWithout);
+      expect(loadConfig(root).languages).toEqual(["ts"]);
+    });
+  });
+});
+
+describe("Python image compatibility notice", () => {
+  it("reports when a target is newer than the image", () => {
+    withRoot({
+      ".python-version": "3.15\n",
+      "pyproject.toml": "[project]\n",
+      "src/index.py": "",
+    }, ["src"], (root) => {
+      expect(pythonRuntimeNotices(loadConfig(root).notices)).toEqual([
+        "python: targeting 3.15 (from .python-version), newer than the image; tools run on CPython 3.14.7",
+      ]);
+    });
+  });
 });
 
 describe("resolved consumer config", () => {

@@ -1,9 +1,11 @@
 import {
   existsSync,
+  lstatSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -49,20 +51,71 @@ const phpInstall = {
   entrypoint: "composer",
   command: ["install", "--no-interaction"],
 };
+const monorepoInstall = {
+  fixture: "monorepo-project",
+  entrypoint: "corepack",
+  command: ["pnpm", "install", "--frozen-lockfile", "--ignore-scripts"],
+};
+const python314Install = {
+  fixture: "python314-project",
+  entrypoint: "uv",
+  command: ["sync", "--frozen"],
+};
 
 const dependencyInstallCases = [
-  [{ tsNodeModules: false, phpVendor: false, payloadNodeModules: false }, [tsInstall, phpInstall, payloadInstall]],
-  [{ tsNodeModules: true, phpVendor: false, payloadNodeModules: false }, [phpInstall, payloadInstall]],
-  [{ tsNodeModules: true, phpVendor: true, payloadNodeModules: false }, [payloadInstall]],
-  [{ tsNodeModules: false, phpVendor: false, payloadNodeModules: true }, [tsInstall, phpInstall]],
-  [{ tsNodeModules: true, phpVendor: false, payloadNodeModules: true }, [phpInstall]],
-  [{ tsNodeModules: false, phpVendor: true, payloadNodeModules: true }, [tsInstall]],
-  [{ tsNodeModules: false, phpVendor: true, payloadNodeModules: false }, [tsInstall, payloadInstall]],
-  [{ tsNodeModules: true, phpVendor: true, payloadNodeModules: true }, []],
+  [{ tsNodeModules: false, phpVendor: false, payloadNodeModules: false, monorepoNodeModules: true, python314Venv: true }, [tsInstall, phpInstall, payloadInstall]],
+  [{ tsNodeModules: true, phpVendor: false, payloadNodeModules: false, monorepoNodeModules: true, python314Venv: true }, [phpInstall, payloadInstall]],
+  [{ tsNodeModules: true, phpVendor: true, payloadNodeModules: false, monorepoNodeModules: true, python314Venv: true }, [payloadInstall]],
+  [{ tsNodeModules: false, phpVendor: false, payloadNodeModules: true, monorepoNodeModules: true, python314Venv: true }, [tsInstall, phpInstall]],
+  [{ tsNodeModules: true, phpVendor: false, payloadNodeModules: true, monorepoNodeModules: true, python314Venv: true }, [phpInstall]],
+  [{ tsNodeModules: false, phpVendor: true, payloadNodeModules: true, monorepoNodeModules: true, python314Venv: true }, [tsInstall]],
+  [{ tsNodeModules: false, phpVendor: true, payloadNodeModules: false, monorepoNodeModules: true, python314Venv: true }, [tsInstall, payloadInstall]],
+  [{ tsNodeModules: true, phpVendor: true, payloadNodeModules: true, monorepoNodeModules: true, python314Venv: true }, []],
+  [
+    { tsNodeModules: false, phpVendor: false, payloadNodeModules: false, monorepoNodeModules: false, python314Venv: false },
+    [tsInstall, phpInstall, payloadInstall, monorepoInstall, python314Install],
+  ],
+  [
+    { tsNodeModules: true, phpVendor: true, payloadNodeModules: true, monorepoNodeModules: false, python314Venv: true },
+    [monorepoInstall],
+  ],
+  [
+    { tsNodeModules: true, phpVendor: true, payloadNodeModules: true, monorepoNodeModules: true, python314Venv: false },
+    [python314Install],
+  ],
 ] as const;
 
 it.each(dependencyInstallCases)("plans installs only for missing dependencies (%#)", (state, expected) => {
   expect(plannedDependencyInstalls(state)).toEqual(expected);
+});
+
+it("passes runtime installer environment and the corepack command", () => {
+  const args = dockerArgs(
+    "code-quality:test",
+    ["pnpm", "install", "--frozen-lockfile", "--ignore-scripts"],
+    "/fixture",
+    "corepack",
+  );
+
+  expect(args).toEqual(expect.arrayContaining([
+    "--entrypoint", "corepack",
+    "-e", "HOME=/tmp",
+    "-e", "COMPOSER_HOME=/tmp/composer",
+    "-e", "UV_CACHE_DIR=/tmp/uv-cache",
+  ]));
+  expect(args).not.toContain("COREPACK_HOME=/tmp/corepack");
+  expect(args.slice(-5)).toEqual([
+    "code-quality:test", "pnpm", "install", "--frozen-lockfile", "--ignore-scripts",
+  ]);
+});
+
+it("passes the uv entrypoint and cache environment", () => {
+  const args = dockerArgs("code-quality:test", ["sync", "--frozen"], "/fixture", "uv");
+  expect(args).toEqual(expect.arrayContaining([
+    "--entrypoint", "uv",
+    "-e", "UV_CACHE_DIR=/tmp/uv-cache",
+  ]));
+  expect(args.slice(-3)).toEqual(["code-quality:test", "sync", "--frozen"]);
 });
 
 function withTempRoot(action: (root: string) => void): void {
@@ -98,6 +151,24 @@ it("copies a fixture without artifacts or temporary files", () => {
     expect(readFileSync(join(destination, "quality", "baseline.json"), "utf8")).toBe("evidence");
     expect(existsSync(join(destination, "artifacts"))).toBe(false);
     expect(existsSync(join(destination, ".code-quality-tmp"))).toBe(false);
+  });
+});
+
+it.each([
+  [false, true],
+  [true, false],
+] as const)("copies symlinks with dereference=%s", (dereference, remainsLink) => {
+  withTempRoot((root) => {
+    const source = join(root, "source");
+    const destination = join(root, "destination");
+    mkdirSync(source);
+    writeFileSync(join(source, "target.txt"), "linked content", "utf8");
+    symlinkSync("target.txt", join(source, "linked.txt"));
+
+    copyFixture(source, destination, dereference);
+
+    expect(lstatSync(join(destination, "linked.txt")).isSymbolicLink()).toBe(remainsLink);
+    expect(readFileSync(join(destination, "linked.txt"), "utf8")).toBe("linked content");
   });
 });
 
@@ -170,6 +241,11 @@ it("defines Drupal, Payload, and monorepo mutations", () => {
   expect(MUTATIONS).toContainEqual(expect.objectContaining({
     fixture: "monorepo-project",
     file: "packages/core/src/orphan.ts",
+    expect: "regressions",
+  }));
+  expect(MUTATIONS).toContainEqual(expect.objectContaining({
+    fixture: "python314-project",
+    file: "src/demo314/extra.py",
     expect: "regressions",
   }));
 });

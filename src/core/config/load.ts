@@ -7,8 +7,8 @@ import { ZodError } from "zod";
 import { fail } from "../errors.ts";
 import {
   BUILTIN_EXCLUSIONS,
-  PAYLOAD_NEXT_EXCLUSIONS,
-  payloadNextExclusions,
+  nextExclusions,
+  payloadExclusions,
   TEST_EXCLUSIONS,
 } from "./exclusions.ts";
 import { configHash } from "./hash.ts";
@@ -16,7 +16,7 @@ import {
   defaultPaths,
   detectLanguages,
   isDrupalProject,
-  isPayloadNextProject,
+  projectProfiles,
   selectArchitecture,
 } from "./detect.ts";
 import {
@@ -26,7 +26,7 @@ import {
   languageExtensions,
 } from "./sources.ts";
 import type { SourceSelection } from "./sources.ts";
-import { workspaceRoots } from "./workspaces.ts";
+import { ownerOf, workspaceRoots } from "./workspaces.ts";
 import {
   LANGUAGES,
   consumerConfigSchema,
@@ -34,6 +34,7 @@ import {
   type Language,
 } from "./schema.ts";
 import type { ArchitectureSelection, ResolvedConfig } from "./types.ts";
+import { isAtLeast, PYTHON_314_VERSION, pythonTarget } from "./runtime.ts";
 
 const DETECTION_MANIFESTS: Partial<Record<Language, readonly string[]>> = {
   ts: ["package.json"],
@@ -284,60 +285,114 @@ function resolveArchitecture(
   return architecture;
 }
 
-function payloadExclusions(enabled: boolean, tsRoots?: readonly string[]): readonly string[] {
-  if (!enabled) return [];
-  return tsRoots === undefined ? PAYLOAD_NEXT_EXCLUSIONS : payloadNextExclusions(tsRoots);
+interface ProfileResolution {
+  exclusions: string[];
+  nextOwners: string[];
+  payloadOwners: string[];
+}
+
+function resolveProfiles(root: string, tsRoots: readonly string[]): ProfileResolution {
+  const rootsByOwner = new Map<string, string[]>();
+  for (const path of tsRoots) {
+    const owner = ownerOf(root, path);
+    const paths = rootsByOwner.get(owner) ?? [];
+    paths.push(path);
+    rootsByOwner.set(owner, paths);
+  }
+  const resolution: ProfileResolution = { exclusions: [], nextOwners: [], payloadOwners: [] };
+  for (const [owner, paths] of rootsByOwner) {
+    const ownerRoot = owner === "." ? root : join(root, owner);
+    const profiles = projectProfiles(ownerRoot);
+    if (profiles.next) {
+      resolution.nextOwners.push(owner);
+      resolution.exclusions.push(...nextExclusions(owner));
+    }
+    if (profiles.payload) {
+      resolution.payloadOwners.push(owner);
+      resolution.exclusions.push(...payloadExclusions(paths));
+    }
+  }
+  resolution.exclusions = [...new Set(resolution.exclusions)];
+  return resolution;
+}
+
+function profileNotice(message: string, owners: readonly string[]): string {
+  const nested = owners.filter((owner) => owner !== ".");
+  return nested.length === owners.length ? `${message} (${nested.join(", ")})` : message;
 }
 
 function appendProfileNotices(
   notices: string[],
   minified: string[],
-  payloadTypeScript: boolean,
+  profiles: ProfileResolution,
 ): void {
   if (minified.length > 0) notices.push(minifiedNotice(minified));
-  if (!payloadTypeScript) return;
-  notices.push(
-    "Payload/Next profile: excluding generated Payload types, import map, admin route group, "
-      + "migrations, seed data, and Next build output",
-  );
+  if (profiles.nextOwners.length > 0) {
+    notices.push(profileNotice(
+      "Next profile: excluding Next build output", profiles.nextOwners,
+    ));
+  }
+  if (profiles.payloadOwners.length > 0) {
+    notices.push(profileNotice(
+      "Payload profile: excluding generated Payload types, import map, admin route group, "
+        + "migrations, and seed data",
+      profiles.payloadOwners,
+    ));
+  }
+}
+
+function appendRuntimeNotice(root: string, languages: readonly Language[], notices: string[]): void {
+  if (!languages.includes("python")) return;
+  const target = pythonTarget(root);
+  if (target === undefined || !isAtLeast(target.version, "3.14")) return;
+  const newer = isAtLeast(target.version, PYTHON_314_VERSION)
+    && target.version !== PYTHON_314_VERSION.slice(0, PYTHON_314_VERSION.lastIndexOf("."));
+  const qualifier = newer ? ", newer than the image" : "";
+  notices.push(`python: targeting ${target.version} (from ${target.source})${qualifier}; `
+    + `tools run on CPython ${PYTHON_314_VERSION}`);
 }
 
 function resolvedExclusions(
   consumer: ConsumerConfig,
   minified: string[],
-  payloadTypeScript: boolean,
-  tsRoots: readonly string[],
+  profileExclusions: readonly string[],
 ): string[] {
-  const profileExclusions = payloadExclusions(payloadTypeScript, tsRoots);
   return [...consumer.exclude ?? [], ...minified, ...profileExclusions];
 }
 
 export function loadConfig(root: string): ResolvedConfig {
   const consumer = readYaml(root);
   const isDrupal = isDrupalProject(root);
-  const payload = isPayloadNextProject(root);
-  const profileExclusions = payloadExclusions(payload);
   const languageResolution = resolveLanguages(root, consumer);
-  const pathResolution = resolvePaths(
+  const initialPaths = resolvePaths(
     root,
     consumer,
     languageResolution.languages,
-    { isDrupal, profileExclusions },
+    { isDrupal, profileExclusions: [] },
+  );
+  const initialProfiles = resolveProfiles(root, initialPaths.paths.ts ?? []);
+  const pathResolution = initialProfiles.exclusions.length === 0 ? initialPaths : resolvePaths(
+    root,
+    consumer,
+    languageResolution.languages,
+    { isDrupal, profileExclusions: initialProfiles.exclusions },
   );
   const languages = languageResolution.languages.filter(
     (language) => pathResolution.paths[language] !== undefined,
   );
   const paths = pathResolution.paths;
-  const payloadTypeScript = payload && paths.ts !== undefined;
-  const resolvedProfileExclusions = payloadTypeScript ? payloadNextExclusions(paths.ts ?? []) : [];
+  const profiles = resolveProfiles(root, paths.ts ?? []);
+  const resolvedProfileExclusions = profiles.exclusions;
   const minified = resolveMinifiedFiles(root, paths, consumer.exclude ?? [], resolvedProfileExclusions);
-  appendProfileNotices(pathResolution.notices, minified, payloadTypeScript);
+  appendProfileNotices(pathResolution.notices, minified, profiles);
+  appendRuntimeNotice(root, languages, pathResolution.notices);
   const architecture = resolveArchitecture(root, languages, consumer);
+  const target = pythonTarget(root);
   const resolved = {
     isDrupal,
     languages,
     paths,
-    exclude: resolvedExclusions(consumer, minified, payloadTypeScript, paths.ts ?? []),
+    exclude: resolvedExclusions(consumer, minified, resolvedProfileExclusions),
     disabled: consumer.checks?.disabled ?? [],
     architecture,
     notices: pathResolution.notices,
@@ -346,6 +401,8 @@ export function loadConfig(root: string): ResolvedConfig {
     root,
     ...resolved,
     ...(consumer.report ? { report: consumer.report } : {}),
-    configHash: configHash(resolved),
+    configHash: configHash(target === undefined || !languages.includes("python")
+      ? resolved
+      : { ...resolved, runtime: { python: target.version } }),
   };
 }

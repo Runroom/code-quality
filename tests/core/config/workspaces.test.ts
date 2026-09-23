@@ -81,7 +81,24 @@ describe("workspaceRoots TypeScript manifests", () => {
       "nested/child/main.ts": "",
     }, (root) => expect(roots(root, "ts")).toEqual(["server"]));
   });
+});
 
+describe("workspace TypeScript root layout", () => {
+  it("keeps a member root when it has source files outside src", () => {
+    withRoot({
+      "package.json": JSON.stringify({ workspaces: ["packages/*"] }),
+      "packages/core/package.json": "{}",
+      "packages/core/src/index.ts": "",
+      "packages/cli/package.json": "{}",
+      "packages/cli/src/lib.ts": "",
+      "packages/cli/cli.ts": "",
+    }, (root) => expect(roots(root, "ts")).toEqual([
+      "packages/cli", "packages/core/src",
+    ]));
+  });
+});
+
+describe("workspace TypeScript exclusions", () => {
   it("drops members excluded as tests", () => {
     withRoot({
       "pnpm-workspace.yaml": "packages: ['packages/*', 'packages/core/plugins/*', 'tests/*']\n",

@@ -146,6 +146,26 @@ export function generatedComplex(
     expect: "regressions",
   },
   {
+    fixture: "python314-project",
+    file: "src/demo314/extra.py",
+    content: `def extra(value: int) -> int:
+    if value > 0:
+        if value > 1:
+            if value > 2:
+                if value > 3:
+                    if value > 4:
+                        if value > 5:
+                            if value > 6:
+                                if value > 7:
+                                    if value > 8:
+                                        if value > 9:
+                                            if value > 10:
+                                                return value
+    return 0
+`,
+    expect: "regressions",
+  },
+  {
     fixture: "web-project",
     file: "templates/page-c.twig",
     copyFrom: "templates/page-a.twig",
@@ -172,11 +192,13 @@ interface FixtureDependencyState {
   tsNodeModules: boolean;
   phpVendor: boolean;
   payloadNodeModules: boolean;
+  monorepoNodeModules: boolean;
+  python314Venv: boolean;
 }
 
 interface DependencyInstallPlan {
-  fixture: "ts-project" | "php-project" | "payload-project";
-  entrypoint: "npm" | "composer";
+  fixture: "ts-project" | "php-project" | "payload-project" | "monorepo-project" | "python314-project";
+  entrypoint: "npm" | "composer" | "corepack" | "uv";
   command: readonly string[];
 }
 
@@ -199,10 +221,22 @@ const DEPENDENCY_INSTALLS = [
     entrypoint: "npm",
     command: ["install", "--ignore-scripts", "--no-audit", "--no-fund"],
   },
+  {
+    state: "monorepoNodeModules",
+    fixture: "monorepo-project",
+    entrypoint: "corepack",
+    command: ["pnpm", "install", "--frozen-lockfile", "--ignore-scripts"],
+  },
+  {
+    state: "python314Venv",
+    fixture: "python314-project",
+    entrypoint: "uv",
+    command: ["sync", "--frozen"],
+  },
 ] as const satisfies readonly (DependencyInstallPlan & { state: keyof FixtureDependencyState })[];
 
 const FIXTURES = [
-  "ts-project", "php-project", "python-project", "web-project",
+  "ts-project", "php-project", "python-project", "python314-project", "web-project",
   "drupal-project", "payload-project", "monorepo-project",
 ] as const;
 // web-project selects no advisory report.
@@ -285,7 +319,7 @@ export function dockerArgs(
   image: string,
   command: readonly string[],
   mountRoot?: string,
-  entrypoint?: "npm" | "composer",
+  entrypoint?: "npm" | "composer" | "corepack" | "uv",
 ): string[] {
   const mountArgs = mountRoot === undefined
     ? []
@@ -293,7 +327,12 @@ export function dockerArgs(
   // Installers run as the host user, who has no home inside the image.
   const entrypointArgs = entrypoint === undefined
     ? []
-    : ["-e", "HOME=/tmp", "-e", "COMPOSER_HOME=/tmp/composer", "--entrypoint", entrypoint];
+    : [
+      "-e", "HOME=/tmp",
+      "-e", "COMPOSER_HOME=/tmp/composer",
+      "-e", "UV_CACHE_DIR=/tmp/uv-cache",
+      "--entrypoint", entrypoint,
+    ];
   return [
     "run", "--rm", "-e", "GITHUB_ACTIONS=true", ...hostUserArgs(), ...mountArgs,
     ...entrypointArgs, image, ...command,
@@ -312,7 +351,7 @@ function runDocker(
   image: string,
   command: readonly string[],
   mountRoot?: string,
-  entrypoint?: "npm" | "composer",
+  entrypoint?: "npm" | "composer" | "corepack" | "uv",
 ): DockerResult {
   const result = spawnSync("docker", dockerArgs(image, command, mountRoot, entrypoint), {
     encoding: "utf8",
@@ -377,6 +416,8 @@ function installMissingFixtureDependencies(repositoryRoot: string, image: string
     tsNodeModules: existsSync(join(fixtureRoot(repositoryRoot, "ts-project"), "node_modules")),
     phpVendor: existsSync(join(fixtureRoot(repositoryRoot, "php-project"), "vendor")),
     payloadNodeModules: existsSync(join(fixtureRoot(repositoryRoot, "payload-project"), "node_modules")),
+    monorepoNodeModules: existsSync(join(fixtureRoot(repositoryRoot, "monorepo-project"), "node_modules")),
+    python314Venv: existsSync(join(fixtureRoot(repositoryRoot, "python314-project"), ".venv")),
   };
   for (const plan of plannedDependencyInstalls(state)) {
     const root = fixtureRoot(repositoryRoot, plan.fixture);
@@ -391,7 +432,11 @@ function temporaryFixture(repositoryRoot: string, fixture: string): string {
   const sourceRoot = fixtureRoot(repositoryRoot, fixture);
   const destinationRoot = mkdtempSync(join(tmpdir(), "code-quality-integration-"));
   chmodSync(destinationRoot, 0o755);
-  copyFixture(sourceRoot, destinationRoot, fixture !== "python-project");
+  copyFixture(
+    sourceRoot,
+    destinationRoot,
+    fixture !== "python-project" && fixture !== "python314-project",
+  );
   return destinationRoot;
 }
 

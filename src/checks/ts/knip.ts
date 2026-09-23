@@ -1,11 +1,11 @@
 import { existsSync, lstatSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 
 import { z } from "zod";
 
 import { PAYLOAD_NEXT_CONFIGS } from "../../core/config/detect.ts";
 import type { ResolvedConfig } from "../../core/config/types.ts";
-import { workspaceMemberDirectories } from "../../core/config/workspaces.ts";
+import { ownerOf, workspaceMemberDirectories } from "../../core/config/workspaces.ts";
 import type { Applicability } from "../../core/types.ts";
 import {
   assertInScope,
@@ -46,6 +46,11 @@ const DEPENDENCY_FIELDS = [
   "devDependencies",
   "peerDependencies",
   "optionalDependencies",
+] as const;
+const NEXT_APP_ENTRIES = [
+  "page", "layout", "template", "loading", "error", "global-error", "not-found", "default", "route",
+  "icon", "apple-icon", "opengraph-image", "twitter-image", "sitemap", "robots", "manifest", "forbidden",
+  "unauthorized",
 ] as const;
 
 const PLUGIN_FLAGS = Object.fromEntries(KNIP_PLUGIN_NAMES.map((plugin) => [plugin, false]));
@@ -141,13 +146,13 @@ function nextEntries(root: string, paths: readonly string[]): string[] {
     if (isDirectory(join(root, base, "app"))) {
       entries.push(prefix(
         base,
-        "app/**/{page,layout,template,loading,error,global-error,not-found,default,route}.{ts,tsx,js,jsx}",
+        `app/**/{${NEXT_APP_ENTRIES.join(",")}}.{ts,tsx,js,jsx}`,
       ));
     }
     if (isDirectory(join(root, base, "pages"))) {
       entries.push(prefix(base, "pages/**/*.{ts,tsx,js,jsx}"));
     }
-    for (const file of ["middleware", "instrumentation"]) {
+    for (const file of ["middleware", "instrumentation", "proxy", "instrumentation-client"]) {
       if (["ts", "js"].some((extension) => isFile(join(root, base, `${file}.${extension}`)))) {
         entries.push(prefix(base, `${file}.{ts,js}`));
       }
@@ -163,16 +168,6 @@ function frameworkEntries(
 ): string[] {
   const applications = detection.nextLike ? nextEntries(root, paths) : [];
   return [...detection.configs, ...applications];
-}
-
-function ownerOf(root: string, path: string): string {
-  let candidate = path.replace(/\/+$/u, "") || ".";
-  while (candidate !== ".") {
-    if (isFile(join(root, candidate, "package.json"))) return candidate;
-    const parent = dirname(candidate);
-    candidate = parent === candidate ? "." : parent;
-  }
-  return ".";
 }
 
 function relativeToOwner(path: string, owner: string): string {

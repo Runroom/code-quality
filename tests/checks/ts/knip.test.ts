@@ -200,15 +200,19 @@ describe("knip static framework entries", () => {
       "playwright.config.ts": "export default {};\n",
       "src/app/page.tsx": "export default function Page() { return null; }\n",
       "src/middleware.ts": "export function middleware() {}\n",
+      "src/proxy.ts": "export function proxy() {}\n",
+      "src/instrumentation-client.js": "export {};\n",
     }, ["src"]);
-    const application = "src/app/**/{page,layout,template,loading,error,global-error,not-found,default,route}.{ts,tsx,js,jsx}";
+    const application = "src/app/**/{page,layout,template,loading,error,global-error,not-found,default,route,icon,apple-icon,opengraph-image,twitter-image,sitemap,robots,manifest,forbidden,unauthorized}.{ts,tsx,js,jsx}";
     expect(generated.entry).toEqual(expect.arrayContaining([
       "next.config.mjs", "src/payload.config.ts", "vitest.config.ts",
-      "playwright.config.ts", application, "src/middleware.{ts,js}",
+      "playwright.config.ts", application, "src/middleware.{ts,js}", "src/proxy.{ts,js}",
+      "src/instrumentation-client.{ts,js}",
     ]));
     expect(generated.project).toEqual(expect.arrayContaining([
       "next.config.mjs", "src/payload.config.ts", "vitest.config.ts",
-      "playwright.config.ts", application, "src/middleware.{ts,js}",
+      "playwright.config.ts", application, "src/middleware.{ts,js}", "src/proxy.{ts,js}",
+      "src/instrumentation-client.{ts,js}",
     ]));
     expect(generated.entry).not.toContain("src/pages/**/*.{ts,tsx,js,jsx}");
   });
@@ -290,7 +294,7 @@ describe("knip workspace framework config", () => {
       "apps/api/src/index.ts": "",
     }, ["apps/api/src", "apps/web/src"]);
     const workspaces = generated.workspaces as Record<string, Record<string, string[]>>;
-    const appPattern = "src/app/**/{page,layout,template,loading,error,global-error,not-found,default,route}.{ts,tsx,js,jsx}";
+    const appPattern = "src/app/**/{page,layout,template,loading,error,global-error,not-found,default,route,icon,apple-icon,opengraph-image,twitter-image,sitemap,robots,manifest,forbidden,unauthorized}.{ts,tsx,js,jsx}";
     expect(workspaces["apps/web"]?.entry).toEqual(expect.arrayContaining(["next.config.mjs", appPattern]));
     expect(workspaces["apps/api"]?.entry).not.toContain(appPattern);
   });

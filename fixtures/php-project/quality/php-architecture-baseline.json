@@ -1,7 +1,7 @@
 {
   "version": 1,
   "tool": "deptrac@4.7.1",
-  "configHash": "e66bb9f2f4190d9dcc46e99eafc97dd48253112dc22634482abab9182d9af259",
+  "configHash": "289388ed5f404165811c82fc643dc408cd8010a59eff9dc59e1c78db8c0a1a88",
   "findings": {
     "src/Domain/Entity.php | deptrac:Domain-on-Infrastructure | /class:Entity/method:save": 1,
     "src/Infrastructure/Repo.php | deptrac:Infrastructure-on-Domain | /class:Repo/method:store": 1

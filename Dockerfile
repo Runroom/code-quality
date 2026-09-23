@@ -42,8 +42,19 @@ RUN for t in phpcs phpstan deptrac; do composer install --working-dir=/opt/php/$
     && curl -fsSL -o /opt/php/bin/composer-require-checker https://github.com/maglnet/ComposerRequireChecker/releases/download/4.24.0/composer-require-checker.phar \
     && echo "35d1dfdd7aa94a750f4b4c9b0b22dd5e76b5e9e35fb910c8901f3dafd2ad2ab9  /opt/php/bin/composer-require-checker" | sha256sum -c - \
     && chmod +x /opt/php/bin/* && rm -rf /opt/composer-home/cache
+ENV COREPACK_HOME=/opt/corepack COREPACK_DEFAULT_TO_LATEST=0 UV_PYTHON_INSTALL_DIR=/opt/python UV_NO_MODIFY_PATH=1
+RUN corepack enable \
+ && corepack prepare pnpm@10.17.1 yarn@1.22.22 --activate \
+ && corepack prepare pnpm@11.5.2
 # Python tools
 COPY docker/python/requirements.txt /opt/requirements.txt
+RUN python3 -m venv /opt/uv && /opt/uv/bin/pip install --no-cache-dir uv==0.12.14 \
+ && ln -s /opt/uv/bin/uv /usr/local/bin/uv \
+ && uv python install 3.14.7 \
+ && ln -s "$(uv python find 3.14.7)" /usr/local/bin/python3.14 \
+ && uv venv /opt/venv314 --python 3.14.7 \
+ && uv pip install --python /opt/venv314/bin/python --no-cache -r /opt/requirements.txt \
+ && rm -rf /root/.cache
 RUN python3 -m venv /opt/venv && /opt/venv/bin/pip install --no-cache-dir -r /opt/requirements.txt
 # CLI bundle + grammar assets
 COPY --from=builder /build/dist /opt/code-quality/dist

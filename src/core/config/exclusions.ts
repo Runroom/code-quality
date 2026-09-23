@@ -33,23 +33,35 @@ export const BUILTIN_EXCLUSIONS = [
   "**/var/**",
 ] as const;
 
-export const PAYLOAD_NEXT_EXCLUSIONS = [
+export const PAYLOAD_EXCLUSIONS = [
   "**/payload-types.ts",
   "**/importMap.js",
   "**/app/[(]payload[)]/**",
   "**/migrations/**",
   "**/migrations-*/**",
   "**/seed/**",
-  ".next/**",
-  "next-env.d.ts",
 ] as const;
 
+export const NEXT_EXCLUSIONS = [".next/**", "next-env.d.ts"] as const;
+export const PAYLOAD_NEXT_EXCLUSIONS = [...PAYLOAD_EXCLUSIONS, ...NEXT_EXCLUSIONS] as const;
+
+function prefix(owner: string, pattern: string): string {
+  return owner === "." ? pattern : `${owner}/${pattern}`;
+}
+
+export function nextExclusions(owner: string): string[] {
+  return NEXT_EXCLUSIONS.map((pattern) => prefix(owner, pattern));
+}
+
+export function payloadExclusions(tsRoots: readonly string[]): string[] {
+  return tsRoots.flatMap((root) => [
+    ...PAYLOAD_EXCLUSIONS.map((pattern) => `${root}/${pattern}`),
+    ...(root.split("/").at(-1) === "app" ? [`${root}/[(]payload[)]/**`] : []),
+  ]);
+}
+
 export function payloadNextExclusions(tsRoots: readonly string[]): string[] {
-  const scoped = PAYLOAD_NEXT_EXCLUSIONS.slice(0, -2);
-  return [
-    ...tsRoots.flatMap((root) => scoped.map((pattern) => `${root}/${pattern}`)),
-    ...PAYLOAD_NEXT_EXCLUSIONS.slice(-2),
-  ];
+  return [...payloadExclusions(tsRoots), ...nextExclusions(".")];
 }
 
 export function isExcluded(file: string, patterns: readonly string[]): boolean {

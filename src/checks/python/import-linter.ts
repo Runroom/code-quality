@@ -1,6 +1,7 @@
 import { assertInScope, fail, FindingsBuilder } from "../shared/kit.ts";
 import { resolveModuleFile } from "./modules.ts";
 import type { CheckAdapter, CheckContext, ParsedFindings } from "../shared/kit.ts";
+import { pythonInvocation } from "./interpreter.ts";
 
 const RESULT = /^(?<name>.+?) (?<result>KEPT|BROKEN)( \([^)]*\))?$/u;
 const TOTALS = /^Contracts: (?<kept>\d+) kept, (?<broken>\d+) broken\.$/u;
@@ -185,8 +186,13 @@ export const importLinterAdapter: CheckAdapter = {
     const selection = ctx.config.architecture.python;
     if (selection?.kind !== "file") throw new Error("import-linter rules file is unavailable");
     const pythonPath = [...ctx.paths.map((path) => `${ctx.root}/${path}`), ctx.root].join(":");
-    return { bin: "lint-imports", args: ["--config", selection.rulesFile, "--no-logo", "--no-cache"],
-      cwd: ctx.root, env: { PYTHONPATH: pythonPath }, exitCodes: [0, 1] };
+    return pythonInvocation(ctx, {
+      bin: "lint-imports",
+      args: ["--config", selection.rulesFile, "--no-logo", "--no-cache"],
+      cwd: ctx.root,
+      env: { PYTHONPATH: pythonPath },
+      exitCodes: [0, 1],
+    });
   },
   parse: (ctx, result) => Promise.resolve(importLinterFindings(ctx, result.stdout)),
 };

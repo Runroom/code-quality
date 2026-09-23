@@ -62,7 +62,8 @@ function serializeArchitecture(
 }
 
 type ConfigHashInput = Omit<ResolvedConfig, "configHash" | "root" | "notices">
-  & Partial<Pick<ResolvedConfig, "notices">>;
+  & Partial<Pick<ResolvedConfig, "notices">>
+  & { runtime?: { python?: string } };
 
 export function configHash(resolved: ConfigHashInput): string {
   const hashable = Object.fromEntries(
