@@ -1,8 +1,9 @@
 import { join } from "node:path";
 
 import { parseJsonOutput, POLICY, xml } from "../shared/kit.ts";
-import { phpcsCommand, phpcsFindings, phpcsRuleset } from "./phpcs-shared.ts";
+import { phpcsCommand, phpcsExtensions, phpcsFindings, phpcsRuleset } from "./phpcs-shared.ts";
 import type { CheckAdapter } from "../shared/kit.ts";
+import type { ResolvedConfig } from "../../core/config/types.ts";
 
 const COGNITIVE_RULE = {
   sources: { "SlevomatCodingStandard.Complexity.Cognitive.ComplexityTooHigh": "ERROR" },
@@ -11,20 +12,20 @@ const COGNITIVE_RULE = {
   minimumExclusive: POLICY.cognitive,
 };
 
-export function cognitiveRuleset(): string {
+export function cognitiveRuleset(config: Pick<ResolvedConfig, "isDrupal">): string {
   const properties = xml("properties", {}, [
     xml("property", { name: "maxComplexity", value: String(POLICY.cognitive) }),
   ]);
   return phpcsRuleset("code-quality-cognitive", xml(
     "rule", { ref: "SlevomatCodingStandard.Complexity.Cognitive" }, [properties],
-  ));
+  ), phpcsExtensions(config));
 }
 
 export const phpcsCognitiveAdapter: CheckAdapter = {
   id: "php-cognitive", check: "cognitive", language: "php",
   tool: { bin: "phpcs", version: "4.0.4" },
   applicability: () => ({ kind: "run" }),
-  configFiles: () => [{ path: "phpcs-cognitive.xml", content: cognitiveRuleset() }],
+  configFiles: (ctx) => [{ path: "phpcs-cognitive.xml", content: cognitiveRuleset(ctx.config) }],
   command: (ctx) => phpcsCommand(ctx, join(ctx.tempDir, "phpcs-cognitive.xml")),
   parse: (ctx, result) => phpcsFindings(
     ctx,

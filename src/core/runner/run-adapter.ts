@@ -108,8 +108,15 @@ async function runInTemp(
   });
   const generated: GeneratedFile[] = adapter.configFiles(context);
   writeGenerated(tempDir, generated);
-  deps.verify(adapter.tool);
-  const result: ToolResult = deps.spawn(adapter.command(context), config.root);
+  const invocation = adapter.command(context);
+  deps.verify(adapter.tool, (bin) => deps.spawn({
+    bin,
+    args: ["--version"],
+    ...(invocation.env === undefined ? {} : { env: invocation.env }),
+    ...(invocation.cwd === undefined ? {} : { cwd: invocation.cwd }),
+    exitCodes: [0],
+  }, config.root));
+  const result: ToolResult = deps.spawn(invocation, config.root);
   if (deps.artifactsRoot !== undefined) {
     writeArtifact(artifacts, "stdout.log", result.stdout);
     writeArtifact(artifacts, "stderr.log", result.stderr);

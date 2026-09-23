@@ -4,6 +4,8 @@ import { parseJsonOutput, POLICY, xml } from "../shared/kit.ts";
 import { phpcsCommand, phpcsFindings, phpcsRuleset } from "./phpcs-shared.ts";
 import type { CheckAdapter } from "../shared/kit.ts";
 import type { PhpcsRule } from "./phpcs-shared.ts";
+import { phpcsExtensions } from "./phpcs-shared.ts";
+import type { ResolvedConfig } from "../../core/config/types.ts";
 
 const COMPLEXITY_RULES: readonly PhpcsRule[] = [
   {
@@ -49,7 +51,7 @@ function configuredRule(ref: string, properties: string[]): string {
   return xml("rule", { ref }, [xml("properties", {}, properties)]);
 }
 
-export function complexityRuleset(): string {
+export function complexityRuleset(config: Pick<ResolvedConfig, "isDrupal">): string {
   const rules = [
     configuredRule("Generic.Metrics.CyclomaticComplexity", [
       property("complexity", POLICY.complexity), property("absoluteComplexity", 1000),
@@ -64,14 +66,14 @@ export function complexityRuleset(): string {
       property("maxParameters", POLICY.maxParams),
     ]),
   ];
-  return phpcsRuleset("code-quality-complexity", rules.join(""));
+  return phpcsRuleset("code-quality-complexity", rules.join(""), phpcsExtensions(config));
 }
 
 export const phpcsComplexityAdapter: CheckAdapter = {
   id: "php-complexity", check: "complexity", language: "php",
   tool: { bin: "phpcs", version: "4.0.4" },
   applicability: () => ({ kind: "run" }),
-  configFiles: () => [{ path: "phpcs-complexity.xml", content: complexityRuleset() }],
+  configFiles: (ctx) => [{ path: "phpcs-complexity.xml", content: complexityRuleset(ctx.config) }],
   command: (ctx) => phpcsCommand(ctx, join(ctx.tempDir, "phpcs-complexity.xml")),
   parse: (ctx, result) => phpcsFindings(
     ctx, parseJsonOutput(result.stdout, "phpcs", result.stderr), COMPLEXITY_RULES,

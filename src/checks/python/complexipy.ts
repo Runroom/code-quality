@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { addAnchoredFinding, excludeGlobs, extractMeasurement, fail, FindingsBuilder, POLICY, relativizeFrom, toolOutput } from "../shared/kit.ts";
 import type { CheckAdapter, CheckContext, ParsedFindings } from "../shared/kit.ts";
+import { pythonInvocation } from "./interpreter.ts";
 
 const RULE_ID = "CC001";
 const MESSAGE = /has a cognitive complexity of (\d+),/u;
@@ -56,7 +57,7 @@ export const complexipyAdapter: CheckAdapter = {
   tool: { bin: "complexipy", version: "8.0.1" },
   applicability: () => ({ kind: "run" }),
   configFiles: (ctx) => toolOutput(ctx, "complexipy.sarif").clear(),
-  command: (ctx) => ({
+  command: (ctx) => pythonInvocation(ctx, {
     bin: "complexipy",
     args: ["--max-complexity-allowed", String(POLICY.cognitive), "--quiet", "--output-format", "sarif",
       "--output", toolOutput(ctx, "complexipy.sarif").path, ...excludeGlobs(ctx.config, true)

@@ -1,0 +1,6 @@
+name: quality
+on: [pull_request, push]
+permissions: { contents: read, packages: read }
+jobs:
+  quality:
+    uses: Runroom/code-quality/.github/workflows/quality.yml@v1

@@ -48,6 +48,15 @@ jobs:
 
 For npm, use `setup: npm ci`. For Composer, use `setup: composer install` or a suitable non-interactive variant such as `setup: composer install --no-interaction`.
 
+The image supports these dependency setup recipes:
+
+- `setup: pnpm install --frozen-lockfile` — Corepack honors the repository's `packageManager`; pnpm 10.17.1 and 11.5.2 are pre-cached, and other pins download on demand.
+- `setup: yarn install --frozen-lockfile` — yarn 1.22.22 is pre-cached.
+- `setup: uv sync --frozen` — uv uses the image's CPython 3.14.7 or 3.13; `.python-version` drives the choice.
+- `setup: composer install --ignore-platform-req=php` — use this for repositories pinned to `php: ~8.3.0`, because the image runs PHP 8.4.
+
+When possible, widen PHP dependency templates to `^8.3` so both PHP 8.3 and 8.4 satisfy the declared platform requirement.
+
 A complete customized caller can select checks, install PHP dependencies, pin the image major, select a consumer subdirectory, and retain reports:
 
 ```yaml

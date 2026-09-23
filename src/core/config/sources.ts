@@ -4,7 +4,7 @@ import { basename, extname, join, relative, sep } from "node:path";
 import { isExcluded } from "./exclusions.ts";
 import type { Language } from "./schema.ts";
 
-const DISCOVERY_EXCLUDED_ROOTS = new Set([
+export const DISCOVERY_EXCLUDED_ROOTS = new Set([
   "node_modules",
   "vendor",
   "dist",
@@ -23,12 +23,29 @@ const DISCOVERY_EXCLUDED_ROOTS = new Set([
   "tmp",
 ]);
 
-export const LANGUAGE_EXTENSIONS: Readonly<Record<Language, readonly string[]>> = {
+const LANGUAGE_EXTENSIONS: Readonly<Record<Language, readonly string[]>> = {
   ts: [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"],
   php: [".php"],
   python: [".py"],
   web: [".twig", ".html", ".css", ".scss", ".less"],
 };
+
+const DRUPAL_PHP_EXTENSIONS = [".module", ".theme", ".install", ".inc", ".profile", ".engine"] as const;
+
+export interface SourceSelection {
+  excludes: readonly string[];
+  extensions: readonly string[];
+}
+
+interface MinifiedSelection {
+  excludes: readonly string[];
+}
+
+export function languageExtensions(language: Language, isDrupal: boolean): readonly string[] {
+  return language === "php" && isDrupal
+    ? [".php", ...DRUPAL_PHP_EXTENSIONS]
+    : LANGUAGE_EXTENSIONS[language];
+}
 
 const MINIFIED_NAME = /(?:[.-]min\.(?:js|css)$|^[a-z-]+-\d+(?:\.\d+)*\.js$)/u;
 const MINIFIED_GLOBS = new Set(["**/*.min.js", "**/*.min.css"]);
@@ -60,16 +77,16 @@ function* walkSourceFiles(
   root: string,
   paths: readonly string[],
   language: Language | undefined,
-  excludes: readonly string[],
+  selection: SourceSelection | MinifiedSelection,
 ): Generator<WalkedSourceFile> {
   const pending = paths.map((path) => join(root, path));
-  const extensions = language === undefined
+  const extensionSet = language === undefined
     ? SOURCE_EXTENSIONS
-    : new Set(LANGUAGE_EXTENSIONS[language]);
+    : new Set((selection as SourceSelection).extensions);
   while (pending.length > 0) {
     const candidate = pending.pop()!;
     const relativePath = portable(relative(root, candidate));
-    if (isExcluded(relativePath, excludes)) continue;
+    if (isExcluded(relativePath, selection.excludes)) continue;
     const stats = lstatSync(candidate);
     if (stats.isDirectory()) {
       for (const entry of readdirSync(candidate, { withFileTypes: true })) {
@@ -77,20 +94,24 @@ function* walkSourceFiles(
       }
       continue;
     }
-    if (stats.isFile() && extensions.has(extname(candidate))) {
+    if (stats.isFile() && extensionSet.has(extname(candidate))) {
       yield { absolute: candidate, relative: relativePath };
     }
   }
+}
+
+export function phpToolExtensions(isDrupal: boolean): string[] {
+  return languageExtensions("php", isDrupal).map((extension) => extension.slice(1));
 }
 
 export function findSourceFiles(
   root: string,
   paths: readonly string[],
   language: Language,
-  excludes: readonly string[],
+  selection: SourceSelection,
 ): string[] {
   const files: string[] = [];
-  for (const file of walkSourceFiles(root, paths, language, excludes)) {
+  for (const file of walkSourceFiles(root, paths, language, selection)) {
     if (!isMinifiedFile(file.absolute)) files.push(file.relative);
   }
   return files.toSorted();
@@ -103,7 +124,7 @@ export function findMinifiedFiles(
 ): string[] {
   const effectiveExcludes = excludes.filter((pattern) => !MINIFIED_GLOBS.has(pattern));
   const files: string[] = [];
-  for (const file of walkSourceFiles(root, paths, undefined, effectiveExcludes)) {
+  for (const file of walkSourceFiles(root, paths, undefined, { excludes: effectiveExcludes })) {
     if (isMinifiedFile(file.absolute)) {
       files.push(file.relative);
     }
@@ -114,12 +135,12 @@ export function findMinifiedFiles(
 export function discoverSourceRoots(
   root: string,
   language: Language,
-  excludes: readonly string[],
+  selection: SourceSelection,
 ): string[] {
   return readdirSync(root, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name)
     .filter((name) => !name.startsWith(".") && !DISCOVERY_EXCLUDED_ROOTS.has(name))
-    .filter((name) => findSourceFiles(root, [name], language, excludes).length > 0)
+    .filter((name) => findSourceFiles(root, [name], language, selection).length > 0)
     .toSorted();
 }

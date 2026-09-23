@@ -1,6 +1,6 @@
 {
   "version": 1,
   "tool": "oxlint@1.82.0",
-  "configHash": "22f4a18e604b10488c376219de2a32dec314621ccbd2a2263c9414ba70ff2301",
+  "configHash": "5efc8f54a48ed2847d32f8e54797f7fbecb80d40283bfa6a5b922fd4503610db",
   "findings": {}
 }

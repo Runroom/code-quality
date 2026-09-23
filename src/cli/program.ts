@@ -44,7 +44,7 @@ function doctorDependencies(deps: CliDeps): { assets: string; probe: (bin: strin
 }
 
 async function versionsCommand(deps: CliDeps): Promise<number> {
-  deps.stdout(`${versionsText(undefined, undefined, deps.style).join("\n")}\n`);
+  deps.stdout(`${versionsText({ style: deps.style }).join("\n")}\n`);
   return 0;
 }
 

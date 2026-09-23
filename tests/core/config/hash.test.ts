@@ -42,6 +42,16 @@ describe("configHash", () => {
     expect(configHash(baseConfig)).toMatch(/^[0-9a-f]{64}$/);
   });
 
+  it("matches the current policy hash when no runtime target is supplied", () => {
+    expect(configHash(baseConfig)).toBe("5725438a068191a110bfba12477cad782ab11bb21f0077cb9c781244d80c9906");
+  });
+
+  it("changes when the derived Python runtime target changes", () => {
+    expect(configHash({ ...baseConfig, runtime: { python: "3.12" } })).not.toBe(
+      configHash({ ...baseConfig, runtime: { python: "3.14" } }),
+    );
+  });
+
   it("matches for equivalent YAML-shaped configurations", () => {
     const first = parse(`
       # The same values in flow notation.

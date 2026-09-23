@@ -29,7 +29,7 @@ Built-in test, generated-file, and framework exclusions apply before these check
 
 ## v1 tool pins
 
-`versions` prints the 15 binary pins and two library pins; `doctor` verifies them.
+`versions` prints the 15 check-tool binary pins, two library pins, and the image Runtime group; `doctor` verifies the pinned tools and runtime availability.
 
 | Family | Binary or package | Pin |
 | --- | --- | --- |
@@ -52,6 +52,24 @@ Built-in test, generated-file, and framework exclusions apply before these check
 | Python | import-linter (`lint-imports`) | 2.15 |
 
 The two Composer library pins come from installed package metadata. Although they are not standalone binary probes, they remain part of the version contract.
+
+## Runtime toolchain
+
+| Verified Runtime pin | Version |
+| --- | --- |
+| uv | 0.12.14 |
+| CPython (`python3.14`) | 3.14.7 |
+| `/opt/venv314/bin/ruff` | 0.16.6 |
+| `/opt/venv314/bin/complexipy` | 8.0.1 |
+| `/opt/venv314/bin/vulture` | 2.16 |
+| `/opt/venv314/bin/deptry` | 0.25.1 |
+| `/opt/venv314/bin/lint-imports` | 2.15 |
+
+| Presence-only Runtime | Provisioning |
+| --- | --- |
+| corepack | pnpm 10.17.1 by default; pnpm 11.5.2 and yarn 1.22.22 cached; other `packageManager` pins download during setup. |
+
+Python targets at or above 3.14 run the Python tools from `/opt/venv314` with a `Notice:`; other targets use the default CPython 3.13 environment, and Ruff receives the matching `target-version`. See [Runtime targets](configuration.md#language-detection-and-source-roots) for how the target is read. Both environments install `docker/python/requirements.txt`, and the version gate probes each tool through the environment its check uses.
 
 ## Baseline semantics
 
@@ -93,7 +111,7 @@ Each unused-code tool has its own adapter, version stamp, and baseline:
 
 Knip requires `node_modules/` only when `package.json` declares any dependency field (`dependencies`, `devDependencies`, `peerDependencies`, or `optionalDependencies`). Install with the repository's package manager before checking; the gate reports a missing install directly.
 
-Knip disables configuration-executing plugins, so dependencies referenced only by tool configuration can appear unused and be baselined. Entry heuristics include conventional `index`, `main`, and `cli` files, files below `bin` directories in each source root, repository-level tests and test patterns, and scripts referenced from `package.json`, such as `node scripts/build.ts`.
+Knip disables every plugin in the pinned Knip registry by generating a `false` toggle, so dependencies referenced only by tool configuration can appear unused and be baselined. Entry heuristics include conventional `index`, `main`, and `cli` files, files below `bin` directories in each source root, repository-level tests and test patterns, and scripts referenced from `package.json`, such as `node scripts/build.ts`. Next routes, middleware, instrumentation, and Payload, Vite, Vitest, and Playwright configs are added as static entries; monorepos get one Knip workspace per source-root owner.
 
 PHP checks require a usable `vendor/` directory containing application dependencies and PHPStan context. Run `composer install` before checking; the gate reports a missing install directly.
 

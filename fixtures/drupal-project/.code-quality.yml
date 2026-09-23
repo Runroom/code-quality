@@ -1,0 +1,4 @@
+checks:
+  disabled:
+    - id: unused
+      reason: "fixture has no installed Composer dependencies"

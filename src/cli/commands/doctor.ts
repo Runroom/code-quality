@@ -2,7 +2,13 @@ import { join } from "node:path";
 
 import { createAnchorService, type AnchorService } from "../../core/anchor/service.ts";
 import { parseVersion } from "../../core/runner/verify.ts";
-import { GRAMMAR_ASSETS, LIBRARY_PINS, TOOL_PINS } from "../../registry.ts";
+import {
+  GRAMMAR_ASSETS,
+  LIBRARY_PINS,
+  RUNTIME_PINS,
+  RUNTIME_PRESENCE,
+  TOOL_PINS,
+} from "../../registry.ts";
 import { GLYPH, type Style } from "../style.ts";
 import { sanitizeLine } from "../render.ts";
 
@@ -50,15 +56,23 @@ function versionResult(name: string, expected: string, actual: string): DoctorPr
   return { name, ok: false, detail: `expected ${expected}, received ${actual}` };
 }
 
+function probe(name: string, operation: () => DoctorProbe): DoctorProbe {
+  try {
+    return operation();
+  } catch (error) {
+    return { name, ok: false, detail: errorDetail(error) };
+  }
+}
+
 function versionProbe(
   pin: { bin: string; version: string },
   deps: DoctorDeps,
 ): DoctorProbe {
-  try {
-    return versionResult(pin.bin, pin.version, parseVersion(deps.probe(pin.bin)));
-  } catch (error) {
-    return { name: pin.bin, ok: false, detail: errorDetail(error) };
-  }
+  return probe(pin.bin, () => versionResult(pin.bin, pin.version, parseVersion(deps.probe(pin.bin))));
+}
+
+function presenceProbe(bin: string, deps: DoctorDeps): DoctorProbe {
+  return probe(bin, () => ({ name: bin, ok: true, detail: parseVersion(deps.probe(bin)) }));
 }
 
 function asInstalledData(value: unknown): InstalledData {
@@ -80,12 +94,10 @@ function libraryProbe(
   pin: (typeof LIBRARY_PINS)[number],
   deps: DoctorDeps,
 ): DoctorProbe {
-  try {
+  return probe(pin.name, () => {
     const actual = packageVersion(deps.readInstalled(pin.installed), pin.name) ?? "unknown";
     return versionResult(pin.name, pin.version, actual);
-  } catch (error) {
-    return { name: pin.name, ok: false, detail: errorDetail(error) };
-  }
+  });
 }
 
 function assetProbe(asset: string, deps: DoctorDeps): DoctorProbe {
@@ -98,8 +110,10 @@ function assetProbe(asset: string, deps: DoctorDeps): DoctorProbe {
 export function runDoctor(deps: DoctorDeps): DoctorProbe[] {
   const tools = TOOL_PINS.map((pin) => versionProbe(pin, deps));
   const libraries = LIBRARY_PINS.map((pin) => libraryProbe(pin, deps));
+  const runtime = RUNTIME_PINS.map((pin) => versionProbe(pin, deps));
+  const presence = RUNTIME_PRESENCE.map((bin) => presenceProbe(bin, deps));
   const assets = GRAMMAR_ASSETS.map((asset) => assetProbe(asset, deps));
-  return [...tools, ...libraries, ...assets];
+  return [...tools, ...libraries, ...runtime, ...presence, ...assets];
 }
 
 async function grammarProbe(service: AnchorService, input: GrammarSource): Promise<DoctorProbe> {
@@ -119,9 +133,9 @@ export async function grammarProbes(assets: string): Promise<DoctorProbe[]> {
   return probes;
 }
 
-export function doctorLine(probe: DoctorProbe, style: Style): string {
-  const glyph = probe.ok ? style.green(GLYPH.pass) : style.red(GLYPH.fail);
-  const rawDetail = sanitizeLine(probe.detail);
-  const detail = probe.ok ? style.dim(rawDetail) : style.red(rawDetail);
-  return ` ${glyph} ${style.bold(sanitizeLine(probe.name))}  ${detail}`;
+export function doctorLine(item: DoctorProbe, style: Style): string {
+  const glyph = item.ok ? style.green(GLYPH.pass) : style.red(GLYPH.fail);
+  const rawDetail = sanitizeLine(item.detail);
+  const detail = item.ok ? style.dim(rawDetail) : style.red(rawDetail);
+  return ` ${glyph} ${style.bold(sanitizeLine(item.name))}  ${detail}`;
 }

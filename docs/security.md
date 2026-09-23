@@ -6,7 +6,7 @@ code-quality analyzes untrusted repository content with tools that may execute c
 
 - dependency-cruiser configuration and import-linter imports can execute consumer code inside the container.
 - A reusable-workflow `setup` command, such as `composer install`, executes consumer code inside the job container.
-- Knip runs with configuration-executing plugins disabled, but other supported tools can still load repository configuration where their operation requires it.
+- Knip runs with configuration-executing plugins disabled; its plugin toggles are generated from the complete plugin registry of the pinned Knip version and verified by a test. Framework entry points are matched as static file patterns and parsed, never executed, but other supported tools can still load repository configuration where their operation requires it.
 - Local launcher containers bind-mount the current repository at `/work` read-write.
 
 ## Container users
@@ -17,6 +17,7 @@ code-quality analyzes untrusted repository content with tools that may execute c
 
 ## Environment handling
 
+- `/opt/corepack`, `/opt/python`, and `/opt/venv314` are root-owned and read-only for the `node` user. Under the reusable workflow (`--user root`), a setup command can write them, and anything cached there remains in scope for the rest of the job; the consumer `packageManager` field selects what corepack resolves.
 - Tool subprocesses receive an allow-list plus constant and invocation-specific values, not the complete parent environment.
 - The npm launcher forwards `CI`, `GITHUB_ACTIONS`, `NO_COLOR`, and `FORCE_COLOR` into the analysis container.
 - When host stdout is a TTY and neither `NO_COLOR` nor `FORCE_COLOR` is set, the launcher injects `FORCE_COLOR=1`; it invokes `docker run` without `-t`, so container stdout is never a TTY.
@@ -48,4 +49,7 @@ code-quality analyzes untrusted repository content with tools that may execute c
 - Global npm packages' transitive dependencies and Python packages are pinned only at the top level.
 - Composer dependencies are fully locked.
 - Downloaded phars are pinned and checksum-verified.
+- uv is installed from PyPI by version pin without a hash.
+- CPython 3.14.7 integrity relies on uv's bundled download metadata.
+- `corepack prepare` specifications carry no integrity hash.
 - These are accepted v1 limits; a tool-version change is a reviewed policy change, not an automatic baseline update.

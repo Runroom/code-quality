@@ -1,0 +1,5 @@
+languages: [python]
+paths:
+  python: [src]
+exclude:
+  - "**/.venv/**"

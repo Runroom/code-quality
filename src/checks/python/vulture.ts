@@ -1,5 +1,6 @@
 import { addAnchoredFinding, excludeGlobs, fail, FindingsBuilder, relativizeFrom } from "../shared/kit.ts";
 import type { CheckAdapter, CheckContext, ParsedFindings } from "../shared/kit.ts";
+import { pythonInvocation } from "./interpreter.ts";
 
 const LINE = /^(?<file>[^:]+):(?<line>\d+): (?<message>unused (?<typ>attribute|class|function|import|method|property|variable) '(?<name>[^']+)'|unreachable code after '(?<stmt>[^']+)'|unsatisfiable '(?<cond>[^']+)' condition) \((?<confidence>\d+)% confidence\)$/u;
 
@@ -48,7 +49,7 @@ export const vultureAdapter: CheckAdapter = {
   tool: { bin: "vulture", version: "2.16" },
   applicability: () => ({ kind: "run" }),
   configFiles: () => [],
-  command: (ctx) => ({
+  command: (ctx) => pythonInvocation(ctx, {
     bin: "vulture",
     args: [...ctx.paths, "--exclude", excludeGlobs(ctx.config, true).join(","),
       "--min-confidence", "0"],

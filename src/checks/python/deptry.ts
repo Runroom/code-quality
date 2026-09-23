@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { assertInScope, excludeGlobs, FindingsBuilder, relativizeFrom, toolOutput } from "../shared/kit.ts";
 import type { CheckAdapter, CheckContext, ParsedFindings } from "../shared/kit.ts";
+import { pythonInvocation } from "./interpreter.ts";
 
 const reportSchema = z.array(z.looseObject({
   error: z.looseObject({
@@ -63,7 +64,7 @@ export const deptryAdapter: CheckAdapter = {
   tool: { bin: "deptry", version: "0.25.1" },
   applicability: () => ({ kind: "run" }),
   configFiles: (ctx) => toolOutput(ctx, "deptry.json").clear(),
-  command: (ctx) => ({
+  command: (ctx) => pythonInvocation(ctx, {
     bin: "deptry",
     args: [...ctx.paths, "--json-output", toolOutput(ctx, "deptry.json").path, "--no-ansi",
       ...excludeGlobs(ctx.config, true).flatMap((glob) => [

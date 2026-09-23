@@ -1,7 +1,13 @@
 node_modules
+fixtures/*/.venv
+fixtures/*/.code-quality-tmp
+fixtures/*/.import_linter_cache
+fixtures/*/.complexipy_cache
+fixtures/*/complexipy-results.json
 dist
 launcher/dist
 artifacts
 fixtures/*/artifacts
+fixtures/*/node_modules
 fixtures/php-project/vendor
 .git

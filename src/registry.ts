@@ -16,6 +16,8 @@ import { deptryAdapter } from "./checks/python/deptry.ts";
 import { importLinterAdapter } from "./checks/python/import-linter.ts";
 import { ruffAdapter } from "./checks/python/ruff.ts";
 import { vultureAdapter } from "./checks/python/vulture.ts";
+import { PYTHON_VENV_TOOLS } from "./checks/python/interpreter.ts";
+import { PYTHON_314_BIN, PYTHON_314_VERSION } from "./core/config/runtime.ts";
 import type { CheckAdapter, ToolPin } from "./core/types.ts";
 
 export const TOOL_PINS: readonly ToolPin[] = [
@@ -35,6 +37,16 @@ export const TOOL_PINS: readonly ToolPin[] = [
   { bin: "deptry", version: "0.25.1" },
   { bin: "lint-imports", version: "2.15" },
 ];
+
+export const RUNTIME_PINS: readonly ToolPin[] = [
+  { bin: "uv", version: "0.12.14" },
+  { bin: "python3.14", version: PYTHON_314_VERSION },
+  ...TOOL_PINS
+    .filter((pin) => (PYTHON_VENV_TOOLS as readonly string[]).includes(pin.bin))
+    .map((pin) => ({ bin: `${PYTHON_314_BIN}/${pin.bin}`, version: pin.version })),
+];
+
+export const RUNTIME_PRESENCE = ["corepack"] as const;
 
 export const LIBRARY_PINS = [
   {

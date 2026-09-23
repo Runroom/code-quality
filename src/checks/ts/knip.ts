@@ -1,9 +1,11 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { z } from "zod";
 
+import { PAYLOAD_NEXT_CONFIGS } from "../../core/config/detect.ts";
 import type { ResolvedConfig } from "../../core/config/types.ts";
+import { ownerOf, workspaceMemberDirectories } from "../../core/config/workspaces.ts";
 import type { Applicability } from "../../core/types.ts";
 import {
   assertInScope,
@@ -15,6 +17,7 @@ import {
   relativize,
 } from "../shared/kit.ts";
 import type { CheckAdapter, CheckContext, GeneratedFile, ParsedFindings } from "../shared/kit.ts";
+import { KNIP_PLUGIN_NAMES } from "./knip-plugins.ts";
 
 const itemSchema = z.looseObject({
   name: z.string(),
@@ -44,6 +47,47 @@ const DEPENDENCY_FIELDS = [
   "peerDependencies",
   "optionalDependencies",
 ] as const;
+const NEXT_APP_ENTRIES = [
+  "page", "layout", "template", "loading", "error", "global-error", "not-found", "default", "route",
+  "icon", "apple-icon", "opengraph-image", "twitter-image", "sitemap", "robots", "manifest", "forbidden",
+  "unauthorized",
+] as const;
+
+const PLUGIN_FLAGS = Object.fromEntries(KNIP_PLUGIN_NAMES.map((plugin) => [plugin, false]));
+
+const FRAMEWORK_CONFIGS = [
+  ...PAYLOAD_NEXT_CONFIGS,
+  "vite.config.ts", "vite.config.js", "vite.config.mts", "vite.config.mjs",
+  "vitest.config.ts", "vitest.config.js", "vitest.config.mts", "vitest.config.mjs",
+  "playwright.config.ts", "playwright.config.js", "playwright.config.mts", "playwright.config.mjs",
+] as const;
+
+interface FrameworkDetection {
+  configs: string[];
+  nextLike: boolean;
+}
+
+interface WorkspaceConfig {
+  entry: string[];
+  project: string[];
+  ignore: string[];
+}
+
+function isFile(path: string): boolean {
+  try {
+    return lstatSync(path).isFile();
+  } catch {
+    return false;
+  }
+}
+
+function isDirectory(path: string): boolean {
+  try {
+    return lstatSync(path).isDirectory();
+  } catch {
+    return false;
+  }
+}
 
 function declaresDependencies(packageFile: string): boolean {
   const parsed: unknown = JSON.parse(readFileSync(packageFile, "utf8"));
@@ -72,41 +116,135 @@ function requireNodeModules(config: ResolvedConfig): Applicability {
   };
 }
 
-function knipConfig(ctx: CheckContext): string {
-  const entry = ctx.paths.flatMap((path) => [
-    `${path}/**/{index,main,cli}.{ts,tsx,js,mjs,cjs}`,
-    `${path}/**/bin/**/*.{ts,js,mjs,cjs}`,
+function prefix(base: string, pattern: string): string {
+  return base === "." ? pattern : `${base}/${pattern}`;
+}
+
+function sourceEntries(paths: readonly string[]): string[] {
+  return paths.flatMap((path) => [
+    prefix(path, "**/{index,main,cli}.{ts,tsx,js,mjs,cjs}"),
+    prefix(path, "**/bin/**/*.{ts,js,mjs,cjs}"),
   ]);
+}
+
+function projectEntries(paths: readonly string[]): string[] {
+  return paths.map((path) => prefix(path, "**/*.{ts,tsx,js,jsx,mjs,cjs}"));
+}
+
+function detectFrameworks(root: string): FrameworkDetection {
+  if (!isDirectory(root)) return { configs: [], nextLike: false };
+  const configs = FRAMEWORK_CONFIGS.filter((file) => isFile(join(root, file)));
+  const nextLike = configs.some((file) =>
+    file.startsWith("next.config.") || file.includes("payload.config.")
+  );
+  return { configs, nextLike };
+}
+
+function nextEntries(root: string, paths: readonly string[]): string[] {
+  const entries: string[] = [];
+  for (const base of new Set([".", ...paths])) {
+    if (isDirectory(join(root, base, "app"))) {
+      entries.push(prefix(
+        base,
+        `app/**/{${NEXT_APP_ENTRIES.join(",")}}.{ts,tsx,js,jsx}`,
+      ));
+    }
+    if (isDirectory(join(root, base, "pages"))) {
+      entries.push(prefix(base, "pages/**/*.{ts,tsx,js,jsx}"));
+    }
+    for (const file of ["middleware", "instrumentation", "proxy", "instrumentation-client"]) {
+      if (["ts", "js"].some((extension) => isFile(join(root, base, `${file}.${extension}`)))) {
+        entries.push(prefix(base, `${file}.{ts,js}`));
+      }
+    }
+  }
+  return entries;
+}
+
+function frameworkEntries(
+  root: string,
+  paths: readonly string[],
+  detection: FrameworkDetection,
+): string[] {
+  const applications = detection.nextLike ? nextEntries(root, paths) : [];
+  return [...detection.configs, ...applications];
+}
+
+function relativeToOwner(path: string, owner: string): string {
+  if (owner === ".") return path;
+  if (path === owner) return ".";
+  return path.slice(owner.length + 1);
+}
+
+function workspaceIgnore(patterns: readonly string[], owner: string): string[] {
+  return patterns.flatMap((pattern) => {
+    if (pattern.startsWith("**/") || owner === ".") return [pattern];
+    const ownerPrefix = `${owner}/`;
+    return pattern.startsWith(ownerPrefix) ? [pattern.slice(ownerPrefix.length)] : [];
+  });
+}
+
+function workspaceFrameworkEntries(root: string, owner: string, paths: readonly string[]): string[] {
+  const ownerRoot = owner === "." ? root : join(root, owner);
+  return frameworkEntries(ownerRoot, paths, detectFrameworks(ownerRoot));
+}
+
+function workspaceBlock(
+  ctx: CheckContext,
+  owner: string,
+  paths: readonly string[],
+): WorkspaceConfig {
+  const entries = workspaceFrameworkEntries(ctx.root, owner, paths);
+  return {
+    entry: [...sourceEntries(paths), ...entries, ...TEST_ENTRIES],
+    project: [...projectEntries(paths), ...entries, ...TEST_ENTRIES],
+    ignore: workspaceIgnore(excludeGlobs(ctx.config, true), owner),
+  };
+}
+
+function safeWorkspaceName(name: string): boolean {
+  return name === "." || name.split("/").every((segment) => /^[A-Za-z0-9._@-]+$/u.test(segment));
+}
+
+function groupedPaths(ctx: CheckContext): Map<string, string[]> {
+  const groups = new Map<string, string[]>();
+  for (const path of ctx.paths) {
+    const owner = ownerOf(ctx.root, path);
+    if (!safeWorkspaceName(owner)) return fail(`ts-unused: unsafe workspace owner ${owner}`);
+    const paths = groups.get(owner) ?? [];
+    paths.push(relativeToOwner(path, owner));
+    groups.set(owner, paths);
+  }
+  return groups;
+}
+
+function knipConfig(ctx: CheckContext): string {
+  const members = workspaceMemberDirectories(ctx.root);
+  const groups = groupedPaths(ctx);
+  const workspaceMode = members.length > 0 || [...groups.keys()].some((owner) => owner !== ".");
+  if (!workspaceMode) {
+    const frameworks = frameworkEntries(ctx.root, ctx.paths, detectFrameworks(ctx.root));
+    return JSON.stringify({
+      entry: [...sourceEntries(ctx.paths), ...frameworks, ...TEST_ENTRIES],
+      project: [...projectEntries(ctx.paths), ...frameworks, ...TEST_ENTRIES],
+      ignore: excludeGlobs(ctx.config, true),
+      ...PLUGIN_FLAGS,
+    }, null, 2);
+  }
+  const workspaceGroups = new Map<string, string[]>([[".", groups.get(".") ?? []]]);
+  for (const [owner, paths] of groups) workspaceGroups.set(owner, paths);
+  const workspaces = Object.fromEntries([...workspaceGroups].map(([owner, paths]) => [
+    owner, workspaceBlock(ctx, owner, paths),
+  ]));
+  const ignoredMembers = members.filter((member) => !groups.has(member)).filter((member) => {
+    if (safeWorkspaceName(member)) return true;
+    ctx.notice(`ts-unused: ignored unsafe workspace member ${member}`);
+    return false;
+  });
   return JSON.stringify({
-    entry: [...entry, ...TEST_ENTRIES],
-    project: [
-      ...ctx.paths.map((path) => `${path}/**/*.{ts,tsx,js,jsx,mjs,cjs}`),
-      ...TEST_ENTRIES,
-    ],
-    ignore: excludeGlobs(ctx.config, true),
-    ignoreDependencies: [],
-    webpack: false,
-    vite: false,
-    vitest: false,
-    jest: false,
-    eslint: false,
-    babel: false,
-    postcss: false,
-    prettier: false,
-    stylelint: false,
-    rollup: false,
-    next: false,
-    nuxt: false,
-    storybook: false,
-    playwright: false,
-    cypress: false,
-    tailwind: false,
-    commitlint: false,
-    husky: false,
-    "lint-staged": false,
-    tsup: false,
-    typedoc: false,
-    payload: false,
+    workspaces,
+    ignoreWorkspaces: ignoredMembers,
+    ...PLUGIN_FLAGS,
   }, null, 2);
 }
 

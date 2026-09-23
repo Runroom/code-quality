@@ -208,6 +208,24 @@ describe("init with excluded sources", () => {
 });
 
 describe("init discovered configuration", () => {
+  it("writes conventional and pnpm workspace roots to the generated configuration", async () => {
+    const root = mkdtempSync(join(tmpdir(), "code-quality-init-workspace-"));
+    roots.push(root);
+    mkdirSync(join(root, "src"), { recursive: true });
+    mkdirSync(join(root, "packages/core/src"), { recursive: true });
+    writeFileSync(join(root, "package.json"), "{}", "utf8");
+    writeFileSync(join(root, "pnpm-workspace.yaml"), "packages: ['packages/*']\n", "utf8");
+    writeFileSync(join(root, "packages/core/package.json"), "{}", "utf8");
+    writeFileSync(join(root, "src/index.ts"), "", "utf8");
+    writeFileSync(join(root, "packages/core/src/index.ts"), "", "utf8");
+
+    expect(await runCli(["node", "code-quality", "init"], command(root, []))).toBe(0);
+    const config = parse(readFileSync(join(root, ".code-quality.yml"), "utf8")) as {
+      paths: Record<string, string[]>;
+    };
+    expect(config.paths.ts).toEqual(["src", "packages/core/src"]);
+  });
+
   it("writes discovered TypeScript roots to the generated configuration", async () => {
     const root = mkdtempSync(join(tmpdir(), "code-quality-init-discovery-"));
     roots.push(root);

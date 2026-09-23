@@ -53,7 +53,11 @@ Without an explicit `languages` list, code-quality combines detected languages w
 | Python | `pyproject.toml` or `setup.py` | Existing `src/` |
 | Web | `.twig`, `.html`, `.css`, `.scss`, or `.less` below `templates/` or `assets/` | Existing `templates/` and `assets/` directories |
 
-When a manifest detects a language but its default roots contain no source files, configuration loading discovers eligible source directories at depth 1 on every command. It ignores hidden, test, build, dependency, generated, and other conventional non-source directories; `init` records the discovered directories in the generated `paths.<language>`.
+Conventional roots with sources are kept and workspace roots from manifests are added: TS/JS from `pnpm-workspace.yaml`, `package.json` `workspaces`, and depth-1 directories with their own `package.json`; PHP from `composer.json` `autoload` directories; Python from `[tool.uv.workspace]` members and `[tool.setuptools.packages.find]` `where`. A TS member maps to `<member>/src` only when no source exists elsewhere in the member. Member patterns support literal segments, `*`, `**`, one `*` inside a segment, and `!` negations; other patterns are ignored. Without conventional roots, depth-1 discovery is unioned with workspace roots. A `Notice:` lists added roots and `init` writes them. Drupal keeps its curated PHP roots.
+
+The Python target comes from the repository-root `.python-version`, then the root `project.requires-python`; if neither defines it, the highest target among `[tool.uv.workspace]` members is used. Targets newer than the image still use CPython 3.14 tools with a notice. A Python target is part of the configuration hash only when Python resolves. PHPStan infers the PHP version from `composer.json` `config.platform.php`.
+
+A directory without a manifest inside a workspace container, such as `packages/scripts`, is not analysed unless listed in `paths.<language>`.
 
 If discovery finds no roots, configuration loading omits the language and prints a `Notice:` explaining how to add `paths.<language>`. An explicitly listed language or explicit path still fails when it contains no source files.
 
@@ -75,6 +79,7 @@ Dependency, virtual-environment, distribution, and artifact directories named `n
 When `composer.json` requires `drupal/core`, `drupal/core-recommended`, or another `drupal/core-*` package, code-quality detects custom code automatically:
 
 - PHP uses existing custom modules, themes, and profiles under `web/` or `docroot/`.
+- PHP checks also scan `.module`, `.theme`, `.install`, `.inc`, `.profile`, and `.engine` files with structural anchors.
 - Web uses custom theme directories.
 - TS/JS adds custom theme directories that contain JavaScript.
 - Ordinary source-root discovery remains the fallback when no custom directory exists.
@@ -91,11 +96,27 @@ exclude:
   - "web/modules/custom/site/generated/**"
 ```
 
+## Payload and Next profiles
+
+Profiles are detected separately for the repository root and each workspace owner of a resolved TS root. `next.config.{js,mjs,cjs,ts,mts}` activates the Next profile, which excludes the owner's `.next/**` and `next-env.d.ts` only.
+
+`payload.config.{ts,js,mjs,mts}` in the owner root or `src/`, or a `payload` dependency or dev dependency in that owner's `package.json`, activates the Payload profile. It excludes these paths under every TS root owned by that package:
+
+- `<ts-root>/**/payload-types.ts`
+- `<ts-root>/**/importMap.js`
+- `<ts-root>/**/app/[(]payload[)]/**`
+- `<ts-root>/**/migrations/**`
+- `<ts-root>/**/migrations-*/**`
+- `<ts-root>/**/seed/**`
+A TS root named `app` also excludes `<ts-root>/[(]payload[)]/**`. One `Notice:` identifies each active profile kind and lists non-root owners. Dependency-cruiser does not apply exclude globs.
+
+Payload exclusions scoped to a TS root also apply to other languages under the same directory.
+
 ## What `init` writes
 
 Run `npx @runroom/code-quality init` once the first source and manifest files exist. It writes or updates:
 
-- `.code-quality.yml` with detected languages and paths, unless the file already exists;
+- `.code-quality.yml` with detected languages and resolved paths, including workspace roots, unless the file already exists;
 - missing `quality/<adapter-id>-baseline.json` files while keeping existing snapshots and reporting each as `● Kept existing quality/<adapter-id>-baseline.json`;
 - `.github/workflows/quality.yml`, unless it already exists;
 - a Makefile or an appended target block when safe; and
